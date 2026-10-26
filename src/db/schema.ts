@@ -40,12 +40,19 @@ export interface Lesson {
   notes: string
 }
 
+/** Bloque de estudio. En Supabase: study_logs (subject_id, start_time, end_time, total_minutes). */
+export type StudyActivity = 'vueltas' | 'lectura' | 'apuntes' | 'universidad' | 'proyectos' | 'descanso'
+
 export interface StudyLog {
-  id: number
-  lessonId: number
-  date: string
-  timeSpentMinutes: number
-  notes: string
+  id: string // uuid: los ids autoincrementales de Dexie chocarían entre dispositivos
+  subjectId?: string
+  activity?: StudyActivity // ausente en registros anteriores a este campo
+  lessonId?: number // solo en 'vueltas', 'lectura' y 'apuntes'
+  date: string // YYYY-MM-DD
+  startTime?: string // HH:mm; vacío si se registró solo la duración
+  endTime?: string // HH:mm
+  totalMinutes: number
+  notes?: string
 }
 
 export const db = new Dexie('LexTracker') as Dexie & {
@@ -63,3 +70,7 @@ db.version(1).stores({
 // v2: temario y colores nuevos. Vacía las tablas (los ids de lección cambian) y seedIfEmpty recarga el temario oficial.
 db.version(2).stores({}).upgrade((tx) =>
   Promise.all([tx.table('subjects').clear(), tx.table('lessons').clear(), tx.table('studyLogs').clear()]))
+
+// v3-v4: studyLogs pasa de ++id a uuid; Dexie no cambia la clave primaria en sitio, así que se borra y recrea (estaba sin uso).
+db.version(3).stores({ studyLogs: null })
+db.version(4).stores({ studyLogs: 'id, date' })

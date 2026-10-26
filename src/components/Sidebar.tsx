@@ -42,14 +42,15 @@ function CountdownCard({ subject, now, next }: { subject: Subject; now: Date; ne
 }
 
 /** Calendario + cuentas atrás: panel lateral fijo en escritorio, bloque superior en móvil. */
-export function Sidebar() {
+// calendar=false en estadísticas: allí ya está "Constancia hasta exámenes"
+export function Sidebar({ calendar = true }: { calendar?: boolean }) {
   const now = useNow()
   const subjects = useLiveQuery(() => db.subjects.toArray(), [], [])
   const upcoming = subjects.filter((s) => examDateOf(s) > now).sort((a, b) => +examDateOf(a) - +examDateOf(b))
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
-      <CalendarView subjects={subjects} today={now} />
+      {calendar && <CalendarView subjects={subjects} today={now} />}
       {/* En móvil va arriba como banner deslizable */}
       <section className="order-first lg:order-none">
         <h2 className="text-body-sm sm:text-heading mb-1.5 sm:mb-3">Cuenta atrás</h2>

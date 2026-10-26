@@ -1,6 +1,6 @@
 // Ejecutar: node src/lib/stats.test.ts
 import assert from 'node:assert/strict'
-import { daysUntil, isInteractiveWeek, progress } from './stats.ts'
+import { daysUntil, isInteractiveWeek, progress, spreadByHour, weightOf } from './stats.ts'
 
 const s = (v1: boolean, v2: boolean) => ({ status: { notesDone: false, underlined: false, v1, v2, v3: false, v4: false, v5: false } })
 const p = progress([s(true, true), s(true, false)])
@@ -21,9 +21,12 @@ assert.equal(daysUntil(new Date(0), new Date()), 0)
 console.log('stats ok')
 
 // cascada
-import { cascade, monthGrid } from './stats.ts'
+import { cascade, isoDate, monthGrid } from './stats.ts'
 const empty = s(false, false).status
 assert.deepEqual(cascade(empty, 'v3', true), { notesDone: true, underlined: true, v1: true, v2: true, v3: true, v4: false, v5: false })
+assert.deepEqual(cascade(empty, 'underlined', true), { ...empty, notesDone: true, underlined: true })
+const to2 = cascade(empty, 'v2', true)
+assert.deepEqual(cascade(to2, 'underlined', false), { ...empty, notesDone: true })
 const full = { notesDone: true, underlined: true, v1: true, v2: true, v3: true, v4: true, v5: true }
 assert.deepEqual(cascade(full, 'v2', false), { notesDone: true, underlined: true, v1: true, v2: false, v3: false, v4: false, v5: false })
 assert.deepEqual(cascade(full, 'notesDone', false), empty)
@@ -49,3 +52,23 @@ assert.deepEqual(toRow(lesson), { id: 3, subject_id: 'a', part_title: 'P', lesso
 assert.deepEqual(fromRow(toRow(lesson)), lesson)
 assert.deepEqual(fromRow({ id: 'x', manual: null, exam_date: '2027-01-14' }), { id: 'x', examDate: '2027-01-14' })
 console.log('rows ok')
+
+// horas de estudio
+import { fmtMinutes, isStudy, minutesBetween, mondayOf } from './stats.ts'
+assert.equal(minutesBetween('09:00', '13:30'), 270)
+assert.equal(minutesBetween('23:30', '00:15'), 45)
+assert.equal(minutesBetween('10:00', '10:00'), 0)
+assert.equal(fmtMinutes(270), '4h 30m')
+assert.equal(fmtMinutes(120), '2h')
+assert.equal(fmtMinutes(45), '45m')
+assert.equal(fmtMinutes(0), '0m')
+assert.equal(isoDate(mondayOf(new Date('2026-10-22T15:00'))), '2026-10-19') // jueves
+assert.equal(isoDate(mondayOf(new Date('2026-10-25T15:00'))), '2026-10-19') // domingo
+assert.ok(isStudy('vueltas') && isStudy(undefined) && !isStudy('proyectos') && !isStudy('descanso') && !isStudy('universidad'))
+assert.deepEqual(['vueltas', 'lectura', 'apuntes', 'universidad', undefined].map((a) => weightOf(a as never)), [1, 0.75, 0.5, 0, 1])
+console.log('study hours ok')
+
+const sp = spreadByHour('09:30', '11:15')
+assert.deepEqual([sp[9], sp[10], sp[11], sp.reduce((a, b) => a + b)], [30, 60, 15, 105])
+const night = spreadByHour('23:30', '00:45')
+assert.deepEqual([night[23], night[24], night.reduce((a, b) => a + b)], [30, 45, 75])

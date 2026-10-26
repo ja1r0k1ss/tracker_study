@@ -22,6 +22,6 @@ export function parseBackup(text: string): Backup {
   const ids = new Set(subjects.map((s) => s.id))
   if (!lessons.every((l) => isObj(l) && typeof l.id === 'number' && ids.has(l.subjectId as string) && isObj(l.status)))
     throw new Error('Lecciones corruptas.')
-  if (!studyLogs.every((l) => isObj(l) && typeof l.id === 'number')) throw new Error('Registros de estudio corruptos.')
+  if (!studyLogs.every((l) => isObj(l) && typeof l.id === 'string' && typeof l.date === 'string' && typeof l.totalMinutes === 'number')) throw new Error('Registros de estudio corruptos.')
   return data as unknown as Backup
 }
