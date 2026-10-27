@@ -4,19 +4,19 @@ const WEEKS = ['2026-10-05', '2026-10-26', '2026-11-16', '2026-12-07']
 
 const subjects: Subject[] = [
   {
-    id: 'dpc1', name: 'Derecho Procesal Civil I', code: 'DPC I', course: '4.º C2', semester: 1,
+    id: 'dpc1', name: 'Derecho Procesal Civil I', code: 'DPC', course: '4.º C2', semester: 1,
     examDate: '2027-01-19', examTime: '13:00', examRoom: 'Salón de Actos (SA)', examLabel: 'Examen',
     manual: 'Cortés Domínguez', type: 'obligatoria', mode: 'temario', color: '#3b82f6',
     classSchedule: ['Jue 10:30-12:00', 'Vie 10:30-12:00'], interactiveWeeks: WEEKS,
   },
   {
-    id: 'ojp', name: 'Organización Judicial y Proceso', code: 'OJP', course: '3.er C2', semester: 1,
+    id: 'ojp', name: 'Organización Judicial y Proceso', code: 'ORGA', course: '3.er C2', semester: 1,
     examDate: '2026-12-18', examTime: '16:00', examRoom: 'Aula A1', examLabel: 'Examen',
     manual: 'Moreno Catena', type: 'obligatoria', mode: 'temario', color: '#10b981',
     classSchedule: ['Jue 16:30-18:00', 'Vie 15:30-16:30'], interactiveWeeks: WEEKS,
   },
   {
-    id: 'merc3', name: 'Derecho Mercantil III', code: 'MERC III', course: '4.º C2', semester: 1,
+    id: 'merc3', name: 'Derecho Mercantil III', code: 'MERCA', course: '4.º C2', semester: 1,
     examDate: '2027-01-14', examTime: '13:00', examRoom: 'Aula A1', examLabel: 'Examen',
     manual: 'Broseta Pont', type: 'obligatoria', mode: 'temario', color: '#8b5cf6',
     classSchedule: ['Lun 09:00-10:30', 'Mar 09:00-10:30', 'Mié 09:00-10:00'], interactiveWeeks: WEEKS,

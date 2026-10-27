@@ -64,8 +64,8 @@ assert.equal(fmtMinutes(45), '45m')
 assert.equal(fmtMinutes(0), '0m')
 assert.equal(isoDate(mondayOf(new Date('2026-10-22T15:00'))), '2026-10-19') // jueves
 assert.equal(isoDate(mondayOf(new Date('2026-10-25T15:00'))), '2026-10-19') // domingo
-assert.ok(isStudy('vueltas') && isStudy(undefined) && !isStudy('proyectos') && !isStudy('descanso') && !isStudy('universidad'))
-assert.deepEqual(['vueltas', 'lectura', 'apuntes', 'universidad', undefined].map((a) => weightOf(a as never)), [1, 0.75, 0.5, 0, 1])
+assert.ok(isStudy('vueltas') && isStudy(undefined) && !isStudy('proyectos') && !isStudy('descanso') && !isStudy('universidad') && !isStudy('clase'))
+assert.deepEqual(['vueltas', 'lectura', 'apuntes', 'universidad', undefined].map((a) => weightOf(a as never)), [0.85, 1, 0.15, 0, 1])
 console.log('study hours ok')
 
 const sp = spreadByHour('09:30', '11:15')

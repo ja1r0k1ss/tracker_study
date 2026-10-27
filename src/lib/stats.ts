@@ -71,8 +71,8 @@ export function spreadByHour(start: string, end: string) {
   return out
 }
 
-/** Tiers de estudio efectivo: peso con que cuenta cada minuto en la "calidad" (vueltas > lectura > apuntes). */
-export const TIER: Partial<Record<StudyActivity, number>> = { vueltas: 1, lectura: 0.75, apuntes: 0.5 }
+/** Tiers por carga cognitiva real: peso de cada minuto en la "carga cognitiva" (lectura > vueltas >> apuntes, que se hacen con IA). */
+export const TIER: Partial<Record<StudyActivity, number>> = { lectura: 1, vueltas: 0.85, apuntes: 0.15 }
 
 /** Estudio efectivo: solo las actividades con tier (registros antiguos sin activity cuentan como estudio). */
 export const isStudy = (a?: StudyActivity) => a === undefined || a in TIER
