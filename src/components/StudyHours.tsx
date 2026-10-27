@@ -8,6 +8,7 @@ import { Badge } from './Badge'
 
 const PRESETS = [25, 30, 45, 60, 90, 120, 180]
 const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+// 'clase' ya no se registra; se mantiene la etiqueta para los registros antiguos
 const ACTIVITIES: [StudyActivity, string][] = [['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['apuntes', 'Preparación apuntes'], ['universidad', 'UPF / USC'], ['clase', 'Clase'], ['proyectos', 'Proyectos personales'], ['descanso', 'Descanso']]
 // Solo el estudio efectivo (vueltas, lectura, apuntes) va ligado a asignatura y lección
 const withLesson = isStudy
@@ -88,7 +89,7 @@ export function LogStudy() {
           </label>
 
           <div className="grid grid-cols-2 gap-2 w-full">
-            {ACTIVITIES.map(([a, label]) => (
+            {ACTIVITIES.filter(([a]) => a !== 'clase').map(([a, label]) => (
               <button key={a} type="button" onClick={() => setActivity(a)}
                 className={`h-11 min-w-0 px-2 truncate rounded-full border text-body-sm ${activity !== a ? 'border-line' : a === 'proyectos' ? 'bg-project text-white border-project' : 'bg-ink text-on-ink border-ink'}`}>
                 {label}
@@ -178,7 +179,7 @@ type DayStats = Record<'vueltas' | 'apuntes' | 'lectura' | 'universidad' | 'clas
 const ROWS: [string, keyof DayStats, string, string, boolean?][] = [
   ['Estudio', 'study', 'text-fg font-semibold', 'Estudio efectivo (lectura + vueltas + apuntes)'],
   ['Lectura', 'lectura', 'text-muted', 'Lectura y subrayado', true], ['Vueltas', 'vueltas', 'text-muted', 'Vueltas al temario', true],
-  ['Apuntes', 'apuntes', 'text-muted', 'Preparación apuntes', true], ['UPF/USC', 'universidad', 'text-muted', 'Gestiones de la universidad (UPF / USC)'], ['Clase', 'clase', 'text-muted', 'En clase en la universidad'], ['Proyectos', 'proyectos', 'text-project', 'Proyectos personales'],
+  ['Apuntes', 'apuntes', 'text-muted', 'Preparación apuntes', true], ['UPF/USC', 'universidad', 'text-muted', 'Gestiones de la universidad (UPF / USC)'], ['Proyectos', 'proyectos', 'text-project', 'Proyectos personales'],
   ['Descanso', 'descanso', 'text-muted', 'Descanso'], ['Total global', 'total', 'text-fg font-semibold', 'Total global (todo el tiempo registrado)'],
 ]
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -322,6 +323,19 @@ const STUDY_CATS = ['lectura', 'vueltas', 'apuntes'] as const
 const PERIODS: [string, number][] = [['7 días', 7], ['30 días', 30], ['Todo', 0]]
 const sumOf = (ls: StudyLog[]) => ls.reduce((a, l) => a + l.totalMinutes, 0)
 
+const heading = 'text-caption text-muted mb-1.5 pt-3 border-t border-line'
+
+/** Cifra destacada del análisis. */
+function Kpi({ label, value, sub, title }: { label: string; value: string; sub: string; title?: string }) {
+  return (
+    <div title={title} className="min-w-0 rounded-input bg-canvas px-2 py-1.5">
+      <p className="text-caption text-muted truncate">{label}</p>
+      <p className="text-body font-heading tabular-nums">{value}</p>
+      <p className="text-caption text-faint truncate">{sub}</p>
+    </div>
+  )
+}
+
 /** Barra apilada por categoría. */
 function Stack({ parts }: { parts: [StudyActivity, number][] }) {
   const total = parts.reduce((a, [, m]) => a + m, 0) || 1
@@ -373,10 +387,12 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
   const active = sumOf(study.filter((l) => l.activity === 'lectura' || l.activity === 'vueltas' || !l.activity))
   const operative = sumOf(study.filter((l) => l.activity === 'apuntes'))
   const noLesson = sumOf(study.filter((l) => l.lessonId === undefined))
+  const effective = active + operative || 1
+  const load = study.reduce((a, l) => a + l.totalMinutes * weightOf(l.activity), 0) / (sumOf(study) || 1)
   const tab = (on: boolean) => `flex-1 min-w-0 h-9 rounded-full text-body-sm ${on ? 'bg-ink text-on-ink' : 'text-muted'}`
 
   return (
-    <section className="bg-card rounded-card shadow-card p-3 space-y-4">
+    <section className="bg-card rounded-card shadow-card p-3 space-y-5">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-body font-normal">Análisis</h3>
         <div className="flex w-52 rounded-full border border-line p-0.5">
@@ -384,43 +400,46 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
         </div>
       </div>
       {total === 0 ? <p className="text-body-sm text-muted">Sin registros en este periodo.</p> : <>
-        <div>
-          <p className="text-caption text-muted mb-1">Por categoría · {fmtMinutes(total)} registradas</p>
-          <Stack parts={cats.map((c) => [c.a, c.minutes])} />
-          <ul className="mt-2 space-y-1">
-            {cats.map(({ a, label, minutes }) => (
-              <li key={a} className="flex items-center gap-2 text-body-sm">
-                <span className="size-2.5 rounded-full shrink-0" style={{ background: CAT_COLOR[a][0], opacity: CAT_COLOR[a][1] }} />
-                <span className="flex-1 min-w-0 truncate">{label}{a in TIER && <span className="text-caption text-faint"> · T{STUDY_CATS.indexOf(a as typeof STUDY_CATS[number]) + 1}</span>}</span>
-                <span className="tabular-nums">{fmtMinutes(minutes)}</span>
-                <span className="w-9 text-right text-caption text-muted tabular-nums">{Math.round((minutes / total) * 100)}%</span>
-              </li>
-            ))}
-            {legacy > 0 && <li className="flex gap-2 text-caption text-muted"><span className="flex-1">Estudio sin categoría (antiguo)</span><span className="tabular-nums">{fmtMinutes(legacy)}</span></li>}
-          </ul>
-        </div>
-
-        {active + operative > 0 && (
-          <div title="Activo: lectura y vueltas (esfuerzo cognitivo real) · Operativo: preparación de apuntes con IA">
-            <p className="text-caption text-muted mb-1">Activo vs. operativo · estudio efectivo</p>
-            <div className="flex h-2 rounded-full bg-line overflow-hidden">
-              <span style={{ width: `${(active / (active + operative)) * 100}%`, background: 'var(--color-accent)' }} />
-              <span style={{ width: `${(operative / (active + operative)) * 100}%`, background: 'var(--color-accent)', opacity: 0.3 }} />
+        {study.length > 0 && (
+          <div>
+            <p className={heading}>Resumen · estudio efectivo {fmtMinutes(sumOf(study))}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Kpi label="Activo" value={fmtMinutes(active)} sub={`${Math.round((active / effective) * 100)}% · lectura + vueltas`} />
+              <Kpi label="Operativo" value={fmtMinutes(operative)} sub={`${Math.round((operative / effective) * 100)}% · apuntes`} />
+              <Kpi label="Carga cognitiva" value={`${Math.round(load * 100)}%`} sub="L 100 · V 85 · A 15"
+                title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%" />
             </div>
-            <p className="mt-1 flex justify-between gap-2 text-body-sm tabular-nums">
-              <span>Activo <span className="text-caption text-muted">(lectura + vueltas)</span> {fmtMinutes(active)} · {Math.round((active / (active + operative)) * 100)}%</span>
-              <span className="text-muted">Operativo {fmtMinutes(operative)} · {Math.round((operative / (active + operative)) * 100)}%</span>
-            </p>
+            <div className="mt-2 flex h-2 rounded-full bg-line overflow-hidden">
+              <span style={{ width: `${(active / effective) * 100}%`, background: 'var(--color-accent)' }} />
+              <span style={{ width: `${(operative / effective) * 100}%`, background: 'var(--color-accent)', opacity: 0.3 }} />
+            </div>
+          </div>
+        )}
+
+        {(read.length > 0 || passed.length > 0) && (
+          <div>
+            <p className={heading}>Velocidad por lección</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Kpi label="Lectura media" value={read.length ? fmtMinutes(avgRead) : '–'} sub={`por lección · ${read.length} leídas`} />
+              <Kpi label="Vuelta media" value={passed.length ? fmtMinutes(avgVuelta) : '–'} sub={`por vuelta · ${passed.length} lecciones`} />
+            </div>
+            {hardest && byLesson.length > 1 && (
+              <p className="mt-2 text-caption text-muted truncate">Te cuesta más: <span className="text-fg font-semibold">{hardest.lesson!.title}</span> · lectura {fmtMinutes(phase(hardest, 'lectura'))} · {fmtMinutes(perVuelta(hardest))}/vuelta</p>
+            )}
           </div>
         )}
 
         {bySubject.length > 0 && (
           <div>
-            <p className="text-caption text-muted mb-1">Por asignatura · estudio efectivo</p>
+            <p className={heading}>Por asignatura</p>
             <ul className="space-y-2">
               {bySubject.map(({ subject, minutes, parts }) => (
                 <li key={subject?.id ?? 'none'}>
-                  <p className="flex justify-between gap-2 text-body-sm"><span className="truncate">{subject?.name ?? 'Sin asignatura'}</span><span className="tabular-nums shrink-0">{fmtMinutes(minutes)}</span></p>
+                  <p className="flex items-center gap-2 text-body-sm">
+                    {subject && <Badge subject={subject} />}
+                    <span className="flex-1 min-w-0 truncate">{subject?.name ?? 'Sin asignatura'}</span>
+                    <span className="tabular-nums shrink-0">{fmtMinutes(minutes)}</span>
+                  </p>
                   <div className="mt-1" style={{ width: `${(minutes / bySubject[0].minutes) * 100}%` }}><Stack parts={parts} /></div>
                 </li>
               ))}
@@ -429,13 +448,7 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
         )}
 
         <div>
-          <p className="text-caption text-muted mb-1">Por lección</p>
-          {(read.length > 0 || passed.length > 0) && (
-            <p className="text-caption text-muted truncate">Media por lección: lectura <span className="text-fg font-semibold tabular-nums">{fmtMinutes(avgRead)}</span> · vuelta <span className="text-fg font-semibold tabular-nums">{fmtMinutes(avgVuelta)}</span></p>
-          )}
-          {hardest && byLesson.length > 1 && (
-            <p className="text-caption text-muted mb-2 truncate">Te cuesta más: <span className="text-fg font-semibold">{hardest.lesson!.title}</span> · lectura {fmtMinutes(phase(hardest, 'lectura'))} · {fmtMinutes(perVuelta(hardest))}/vuelta</p>
-          )}
+          <p className={heading}>Por lección</p>
           {byLesson.length === 0 && <p className="text-body-sm text-muted">Elige la lección al registrar para ver este desglose.</p>}
           <ul className="space-y-2">
             {(showAll ? byLesson : byLesson.slice(0, 8)).map(({ lesson, subject, minutes, sessions, vueltas, parts }) => (
@@ -459,6 +472,22 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
             </button>
           )}
           {noLesson > 0 && <p className="mt-2 text-caption text-faint">{fmtMinutes(noLesson)} de estudio sin lección asignada.</p>}
+        </div>
+
+        <div>
+          <p className={heading}>Todo el tiempo registrado · {fmtMinutes(total)}</p>
+          <Stack parts={cats.map((c) => [c.a, c.minutes])} />
+          <ul className="mt-2 space-y-1">
+            {cats.map(({ a, label, minutes }) => (
+              <li key={a} className="flex items-center gap-2 text-body-sm">
+                <span className="size-2.5 rounded-full shrink-0" style={{ background: CAT_COLOR[a][0], opacity: CAT_COLOR[a][1] }} />
+                <span className="flex-1 min-w-0 truncate">{label}{a in TIER && <span className="text-caption text-faint"> · T{STUDY_CATS.indexOf(a as typeof STUDY_CATS[number]) + 1}</span>}</span>
+                <span className="tabular-nums">{fmtMinutes(minutes)}</span>
+                <span className="w-9 text-right text-caption text-muted tabular-nums">{Math.round((minutes / total) * 100)}%</span>
+              </li>
+            ))}
+            {legacy > 0 && <li className="flex gap-2 text-caption text-muted"><span className="flex-1">Estudio sin categoría (antiguo)</span><span className="tabular-nums">{fmtMinutes(legacy)}</span></li>}
+          </ul>
         </div>
       </>}
     </section>
