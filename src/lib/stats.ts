@@ -52,7 +52,7 @@ export function monthGrid(year: number, month: number) {
   return [...Array<null>(offset).fill(null), ...Array.from({ length: days }, (_, i) => new Date(year, month, i + 1))]
 }
 
-const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+export const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 
 /** Minutos entre dos HH:mm; si el fin es anterior al inicio se asume que cruza medianoche. */
 export function minutesBetween(start: string, end: string) {
