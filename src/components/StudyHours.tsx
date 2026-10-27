@@ -486,9 +486,9 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
           <div>
             <p className={heading}>Resumen · estudio efectivo {fmtMinutes(sumOf(study))}</p>
             <div className="grid grid-cols-3 gap-2">
-              <Kpi label="Activo" value={fmtMinutes(active)} sub={`${Math.round((active / effective) * 100)}% · lectura + vueltas`} />
+              <Kpi label="Activo" value={fmtMinutes(active)} sub={`${Math.round((active / effective) * 100)}% · L + V`} />
               <Kpi label="Operativo" value={fmtMinutes(operative)} sub={`${Math.round((operative / effective) * 100)}% · apuntes`} />
-              <Kpi label="Carga cognitiva" value={`${Math.round(load * 100)}%`} sub="L 100 · V 85 · A 15"
+              <Kpi label="Carga cognitiva" value={`${Math.round(load * 100)}%`} sub="ponderada"
                 title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%" />
             </div>
             <div className="mt-2 flex h-2 rounded-full bg-line overflow-hidden">
@@ -506,7 +506,7 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
               <Kpi label="Vuelta media" value={passed.length ? fmtMinutes(avgVuelta) : '–'} sub={`por vuelta · ${passed.length} lecciones`} />
             </div>
             {hardest && byLesson.length > 1 && (
-              <p className="mt-2 text-caption text-muted truncate">Te cuesta más: <span className="text-fg font-semibold">{hardest.lesson!.title}</span> · lectura {fmtMinutes(phase(hardest, 'lectura'))} · {fmtMinutes(perVuelta(hardest))}/vuelta</p>
+              <p className="mt-2 text-caption text-muted line-clamp-2">Te cuesta más: <span className="text-fg font-semibold">{hardest.lesson!.title}</span> · lectura {fmtMinutes(phase(hardest, 'lectura'))} · {fmtMinutes(perVuelta(hardest))}/vuelta</p>
             )}
           </div>
         )}
@@ -631,14 +631,14 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
               <span className={`mt-0.5 size-2.5 rounded-full ${perDay[i].study ? 'bg-done' : 'bg-line'}`} aria-label={perDay[i].study ? 'Cumplido' : 'Sin estudio'} />
             </span>
           ))}
-          {ROWS.map(([label, key, cls, full, sub]) => [
+          {ROWS.filter(([, key, , , sub]) => sub || key === 'study' || key === 'total' || perDay.some((d) => d[key])).map(([label, key, cls, full, sub]) => [
             <span key={label} title={full} className={`text-left truncate ${cls} ${sub ? 'pl-4' : ''} ${key === 'total' ? 'border-t border-line pt-1.5' : ''}`}>{sub ? `↳ ${label}` : label}</span>,
             ...perDay.map((d, i) => <span key={`${label}${i}`} className={`${d[key] ? cls : 'text-faint'} ${key === 'total' ? 'border-t border-line pt-1.5' : ''}`}>{fmtH(d[key])}</span>),
           ])}
         </div>
         <p className="mt-3 pt-2 border-t border-line text-body-sm">
           Días cumplidos esta semana: <span className="font-semibold tabular-nums">{doneDays} / 7</span>
-          {weekStudy > 0 && <span className="text-muted" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
+          {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
         </p>
       </section>
 
