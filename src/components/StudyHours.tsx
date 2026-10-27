@@ -189,8 +189,8 @@ function Tile({ label, minutes }: { label: string; minutes: number }) {
 type DayStats = Record<'vueltas' | 'apuntes' | 'lectura' | 'universidad' | 'clase' | 'trabajo' | 'desplazamiento' | 'dormir' | 'proyectos' | 'descanso' | 'study' | 'quality' | 'total', number>
 // [etiqueta, clave, clases, título, es subfila de Estudio]
 const ROWS: [string, keyof DayStats, string, string, boolean?][] = [
-  ['Estudio', 'study', 'text-fg font-semibold', 'Estudio efectivo (lectura + vueltas + apuntes)'],
-  ['Lectura', 'lectura', 'text-muted', 'Lectura y subrayado', true], ['Vueltas', 'vueltas', 'text-muted', 'Vueltas al temario', true],
+  ['Estudio', 'study', 'text-fg font-semibold', 'Estudio efectivo (vueltas + lectura + apuntes)'],
+  ['Vueltas', 'vueltas', 'text-muted', 'Vueltas al temario', true], ['Lectura', 'lectura', 'text-muted', 'Lectura y subrayado', true],
   ['Apuntes', 'apuntes', 'text-muted', 'Preparación apuntes', true], ['Clase', 'clase', 'text-muted', 'Clase'], ['UPF/USC', 'universidad', 'text-muted', 'Gestiones de la universidad (UPF / USC)'],
   ['Trabajo', 'trabajo', 'text-muted', 'Trabajo (experiencia profesional)'], ['Proyectos', 'proyectos', 'text-project', 'Proyectos personales'],
   ['Desplaz.', 'desplazamiento', 'text-muted', 'Desplazamientos'], ['Descanso', 'descanso', 'text-muted', 'Descanso'], ['Dormir', 'dormir', 'text-muted', 'Dormir'], ['Total global', 'total', 'text-fg font-semibold', 'Total global (todo el tiempo registrado)'],
