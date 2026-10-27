@@ -327,9 +327,9 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
   )
 }
 
-// Tiers de estudio en el acento (más opaco = tier más alto); el resto con color propio
+// Estudio en un mismo tono por niveles (más intenso = tier más alto); el resto con color propio
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
-  lectura: ['var(--color-accent)', 1], vueltas: ['var(--color-accent)', 0.6], apuntes: ['var(--color-accent)', 0.3],
+  lectura: ['var(--color-study-1)', 1], vueltas: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
   clase: ['var(--color-class)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1],
   desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1],
 }
@@ -492,8 +492,8 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
                 title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%" />
             </div>
             <div className="mt-2 flex h-2 rounded-full bg-line overflow-hidden">
-              <span style={{ width: `${(active / effective) * 100}%`, background: 'var(--color-accent)' }} />
-              <span style={{ width: `${(operative / effective) * 100}%`, background: 'var(--color-accent)', opacity: 0.3 }} />
+              <span style={{ width: `${(active / effective) * 100}%`, background: 'var(--color-study-1)' }} />
+              <span style={{ width: `${(operative / effective) * 100}%`, background: 'var(--color-study-3)' }} />
             </div>
           </div>
         )}
@@ -637,7 +637,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
           ])}
         </div>
         <p className="mt-3 pt-2 border-t border-line text-body-sm">
-          Días cumplidos esta semana: <span className="font-semibold tabular-nums">{doneDays} / 7</span>
+          Días cumplidos esta semana: <span className="font-semibold tabular-nums whitespace-nowrap">{doneDays} / 7</span>
           {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
         </p>
       </section>
