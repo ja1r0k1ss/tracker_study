@@ -52,20 +52,17 @@ const milestones = (subjectId: string, final: string): Omit<Lesson, 'id'>[] =>
 // Programas oficiales: guías docentes USC Grado en Derecho 2026/2027 (usc.gal)
 export const lessons: Omit<Lesson, 'id'>[] = [
   ...part('dpc1', 'Parte I', 'Lección', [
-    [1, 'Introducción. Principios del proceso y del procedimiento'],
-    [2, 'La competencia'],
-    [3, 'Las partes procesales'],
-    [4, 'El objeto del proceso civil'],
-    [5, 'Tipología de los procesos civiles'],
+    [1, 'Introducción. Principios del proceso y del procedimiento. Tipos de procesos civiles'],
+    [2, 'Presupuestos procesales del órgano jurisdiccional, de las partes y del objeto del proceso'],
+    [3, 'El objeto del proceso civil'],
   ]),
   ...part('dpc1', 'Parte II', 'Lección', [
-    [6, 'Actos previos al proceso'],
-    [7, 'La fase de alegaciones'],
-    [8, 'La fase intermedia y la fase de juicio o vista'],
-    [9, 'La fase probatoria (I)'],
-    [10, 'La fase probatoria (II)'],
-    [11, 'La fase de conclusiones y la finalización de la primera instancia'],
-    [12, 'Los costes del proceso civil'],
+    [4, 'Actos previos, preparatorios y aseguratorios del proceso y de la prueba'],
+    [5, 'La fase de alegaciones'],
+    [6, 'La fase intermedia y la fase de juicio o vista'],
+    [7, 'La fase probatoria'],
+    [8, 'Los medios concretos de prueba'],
+    [9, 'La fase de conclusiones y la finalización de la primera instancia'],
   ]),
   ...part('ojp', 'Temario', 'Lección', [
     [1, 'El Derecho procesal'],
