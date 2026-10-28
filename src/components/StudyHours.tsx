@@ -11,11 +11,11 @@ const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const ACTIVITIES: [StudyActivity, string][] = [
   ['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['apuntes', 'Preparación apuntes'],
   ['clase', 'Clase'], ['universidad', 'UPF / USC'],
-  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'],
+  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'],
 ]
 const GROUPS: [string, StudyActivity[]][] = [
   ['Estudio', ['vueltas', 'lectura', 'apuntes']], ['Universidad', ['clase', 'universidad']],
-  ['Otros', ['trabajo', 'proyectos', 'desplazamiento', 'descanso', 'dormir']],
+  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir']],
 ]
 const labelOf = (a?: StudyActivity) => ACTIVITIES.find(([k]) => k === a)?.[1] ?? 'Estudio'
 // Solo el estudio efectivo (vueltas, lectura, apuntes) va ligado a lección; la clase también a asignatura
@@ -186,13 +186,13 @@ function Tile({ label, minutes }: { label: string; minutes: number }) {
   )
 }
 
-type DayStats = Record<'vueltas' | 'apuntes' | 'lectura' | 'universidad' | 'clase' | 'trabajo' | 'desplazamiento' | 'dormir' | 'proyectos' | 'descanso' | 'study' | 'quality' | 'total', number>
+type DayStats = Record<'vueltas' | 'apuntes' | 'lectura' | 'universidad' | 'clase' | 'trabajo' | 'desplazamiento' | 'dormir' | 'proyectos' | 'debate' | 'descanso' | 'study' | 'quality' | 'total', number>
 // [etiqueta, clave, clases, título, es subfila de Estudio]
 const ROWS: [string, keyof DayStats, string, string, boolean?][] = [
   ['Estudio', 'study', 'text-fg font-semibold', 'Estudio efectivo (vueltas + lectura + apuntes)'],
   ['Vueltas', 'vueltas', 'text-muted', 'Vueltas al temario', true], ['Lectura', 'lectura', 'text-muted', 'Lectura y subrayado', true],
   ['Apuntes', 'apuntes', 'text-muted', 'Preparación apuntes', true], ['Clase', 'clase', 'text-muted', 'Clase'], ['UPF/USC', 'universidad', 'text-muted', 'Gestiones de la universidad (UPF / USC)'],
-  ['Trabajo', 'trabajo', 'text-muted', 'Trabajo (experiencia profesional)'], ['Proyectos', 'proyectos', 'text-project', 'Proyectos personales'],
+  ['Trabajo', 'trabajo', 'text-muted', 'Trabajo (experiencia profesional)'], ['Proyectos', 'proyectos', 'text-project', 'Proyectos personales'], ['Debate', 'debate', 'text-muted', 'Debate'],
   ['Desplaz.', 'desplazamiento', 'text-muted', 'Desplazamientos'], ['Descanso', 'descanso', 'text-muted', 'Descanso'], ['Dormir', 'dormir', 'text-muted', 'Dormir'], ['Total global', 'total', 'text-fg font-semibold', 'Total global (todo el tiempo registrado)'],
 ]
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -330,7 +330,7 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
 // Estudio en un mismo tono por niveles (más intenso = tier más alto); el resto con color propio
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
   lectura: ['var(--color-study-1)', 1], vueltas: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
-  clase: ['var(--color-class)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1],
+  clase: ['var(--color-class)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1], debate: ['var(--color-debate)', 1],
   desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1],
 }
 const STUDY_CATS = ['lectura', 'vueltas', 'apuntes'] as const
@@ -592,7 +592,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const dayOf = (d: string): DayStats => {
     const own = byDate.get(d) ?? []
     const by = (a: StudyActivity) => sum(own.filter((l) => l.activity === a))
-    return { vueltas: by('vueltas'), apuntes: by('apuntes'), lectura: by('lectura'), universidad: by('universidad'), clase: by('clase'), trabajo: by('trabajo'), proyectos: by('proyectos'), desplazamiento: by('desplazamiento'), descanso: by('descanso'), dormir: by('dormir'), study: sum(own.filter((l) => isStudy(l.activity))), quality: own.reduce((a, l) => a + l.totalMinutes * weightOf(l.activity), 0), total: sum(own) }
+    return { vueltas: by('vueltas'), apuntes: by('apuntes'), lectura: by('lectura'), universidad: by('universidad'), clase: by('clase'), trabajo: by('trabajo'), proyectos: by('proyectos'), debate: by('debate'), desplazamiento: by('desplazamiento'), descanso: by('descanso'), dormir: by('dormir'), study: sum(own.filter((l) => isStudy(l.activity))), quality: own.reduce((a, l) => a + l.totalMinutes * weightOf(l.activity), 0), total: sum(own) }
   }
   const perDay = week.map(dayOf)
   const exams = new Map<string, Subject[]>()
