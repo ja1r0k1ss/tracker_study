@@ -41,7 +41,7 @@ export interface Lesson {
 }
 
 /** Bloque de estudio. En Supabase: study_logs (subject_id, start_time, end_time, total_minutes). */
-export type StudyActivity = 'vueltas' | 'lectura' | 'apuntes' | 'universidad' | 'clase' | 'trabajo' | 'proyectos' | 'debate' | 'desplazamiento' | 'descanso' | 'dormir'
+export type StudyActivity = 'vueltas' | 'lectura' | 'apuntes' | 'universidad' | 'clase' | 'interactivas' | 'trabajo' | 'proyectos' | 'debate' | 'desplazamiento' | 'descanso' | 'dormir'
 
 export interface StudyLog {
   id: string // uuid: los ids autoincrementales de Dexie chocarían entre dispositivos
