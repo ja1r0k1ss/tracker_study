@@ -361,7 +361,7 @@ function Stack({ parts }: { parts: [StudyActivity, number][] }) {
   )
 }
 
-const PX = 20 // alto de una hora en el visor semanal
+const PX = 32 // alto de una hora en el visor semanal
 const H0 = 9, H1 = 22 // franja visible del visor semanal (lo de fuera se recorta)
 
 /** Visor semanal tipo agenda: cada bloque con inicio y fin en su hora real; los que cruzan medianoche se parten. */
@@ -399,10 +399,10 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
           <span key={i} className={`text-center leading-tight ${isoDate(d) === today ? 'text-accent font-semibold' : 'text-muted'}`}>{DAYS[i]}<br />{d.getDate()}</span>
         ))}
         <div className="relative" style={{ height: (H1 - H0) * PX }}>
-          {[9, 12, 15, 18, 21].map((h) => <span key={h} className="absolute right-0.5 -translate-y-1/2 text-[10px] text-faint tabular-nums" style={{ top: (h - H0) * PX }}>{h === H0 ? '' : h}</span>)}
+          {Array.from({ length: H1 - H0 }, (_, i) => <span key={i} className="absolute right-0.5 text-[10px] leading-none text-faint tabular-nums" style={{ top: i * PX + 2 }}>{H0 + i}</span>)}
         </div>
         {days.map((_, d) => (
-          <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${3 * PX}px)` }}>
+          <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${PX}px)` }}>
             {segs.filter((x) => x.d === d).map(({ l, a, b }) => (
               <button key={`${l.id}${a}`} type="button" onClick={() => setPicked(l)} aria-label={`${labelOf(l.activity)} ${l.startTime}–${l.endTime}`}
                 className={`absolute inset-x-0 rounded-[3px] ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
