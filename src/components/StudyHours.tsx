@@ -85,8 +85,9 @@ export function LogStudy() {
 
   return (
     <>
-      <button onClick={open} className="inline-flex items-center gap-1 h-11 rounded-full bg-ink text-on-ink px-4 text-body-sm font-normal">
-        <Plus size={16} /> Registrar
+      {/* Flotante: siempre a mano sin hacer scroll; respeta la barra de inicio del iPhone */}
+      <button onClick={open} aria-label="Registrar tiempo" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-14 grid place-items-center rounded-full bg-ink text-on-ink shadow-card">
+        <Plus size={24} />
       </button>
       <dialog ref={dialog} className="w-[calc(100%-2rem)] max-w-md mx-auto my-auto max-h-[92dvh] overflow-x-hidden box-border rounded-card bg-card text-fg p-4 shadow-card backdrop:bg-black/40">
         <form onSubmit={save} className="space-y-3">
@@ -361,6 +362,7 @@ function Stack({ parts }: { parts: [StudyActivity, number][] }) {
 }
 
 const PX = 20 // alto de una hora en el visor semanal
+const H0 = 9, H1 = 22 // franja visible del visor semanal (lo de fuera se recorta)
 
 /** Visor semanal tipo agenda: cada bloque con inicio y fin en su hora real; los que cruzan medianoche se parten. */
 function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Subject[]; lessons: Lesson[] }) {
@@ -374,7 +376,7 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
   const segs = logs.flatMap((l) => {
     if (!l.startTime || !l.endTime) return []
     const i = dayIndex(l.date), s = toMin(l.startTime), e = s + minutesBetween(l.startTime, l.endTime)
-    return ([[i, s, Math.min(e, 1440)], [i + 1, 0, e - 1440]] as const).filter(([d, a, b]) => d >= 0 && d < 7 && b > a).map(([d, a, b]) => ({ l, d, a, b }))
+    return ([[i, s, Math.min(e, 1440)], [i + 1, 0, e - 1440]] as const).map(([d, a, b]) => [d, Math.max(a, H0 * 60), Math.min(b, H1 * 60)] as const).filter(([d, a, b]) => d >= 0 && d < 7 && b > a).map(([d, a, b]) => ({ l, d, a, b }))
   })
   const untimed = logs.filter((l) => !l.startTime && dayIndex(l.date) >= 0 && dayIndex(l.date) < 7).length
   const present = ACTIVITIES.filter(([a]) => segs.some((x) => x.l.activity === a))
@@ -396,15 +398,15 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
         {days.map((d, i) => (
           <span key={i} className={`text-center leading-tight ${isoDate(d) === today ? 'text-accent font-semibold' : 'text-muted'}`}>{DAYS[i]}<br />{d.getDate()}</span>
         ))}
-        <div className="relative" style={{ height: 24 * PX }}>
-          {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => <span key={h} className="absolute right-0.5 -translate-y-1/2 text-[10px] text-faint tabular-nums" style={{ top: h * PX }}>{h || ''}</span>)}
+        <div className="relative" style={{ height: (H1 - H0) * PX }}>
+          {[9, 12, 15, 18, 21].map((h) => <span key={h} className="absolute right-0.5 -translate-y-1/2 text-[10px] text-faint tabular-nums" style={{ top: (h - H0) * PX }}>{h === H0 ? '' : h}</span>)}
         </div>
         {days.map((_, d) => (
-          <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: 24 * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${3 * PX}px)` }}>
+          <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${3 * PX}px)` }}>
             {segs.filter((x) => x.d === d).map(({ l, a, b }) => (
               <button key={`${l.id}${a}`} type="button" onClick={() => setPicked(l)} aria-label={`${labelOf(l.activity)} ${l.startTime}–${l.endTime}`}
                 className={`absolute inset-x-0 rounded-[3px] ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
-                style={{ top: (a / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }} />
+                style={{ top: ((a - H0 * 60) / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }} />
             ))}
           </div>
         ))}

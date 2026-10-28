@@ -17,7 +17,7 @@ export default function App() {
         <aside className={`lg:col-span-4 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:block ${subjectId || stats ? 'hidden' : ''}`}>
           <Sidebar calendar={!stats} />
         </aside>
-        <main className="lg:col-span-8">
+        <main className="lg:col-span-8 pb-20">
           {stats ? <StudyStats onBack={home} />
             : subjectId ? <SubjectView subjectId={subjectId} onBack={home} />
             : <Dashboard onOpen={setSubjectId} onStats={() => setStats(true)} />}
