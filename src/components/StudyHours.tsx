@@ -103,8 +103,8 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
 
   return (
     <>
-      {/* Flotante: siempre a mano sin hacer scroll; respeta la barra de inicio del iPhone */}
-      <button onClick={() => open()} aria-label="Registrar tiempo" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-14 grid place-items-center rounded-full bg-ink text-on-ink shadow-card">
+      {/* Flotante: siempre a mano sin hacer scroll; por encima de la barra de pestañas */}
+      <button onClick={() => open()} aria-label="Registrar tiempo" className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 size-14 grid place-items-center rounded-full bg-ink text-on-ink shadow-card">
         <Plus size={24} />
       </button>
       <dialog ref={dialog} onClose={onClose} className="w-[calc(100%-2rem)] max-w-md mx-auto my-auto max-h-[92dvh] overflow-x-hidden box-border rounded-card bg-card text-fg p-4 shadow-card backdrop:bg-black/40">
@@ -399,7 +399,9 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
   })
   const inWeek = (l: StudyLog) => dayIndex(l.date) >= 0 && dayIndex(l.date) < 7
   const untimed = logs.filter((l) => !l.startTime && inWeek(l)).length
-  const libWeek = sumOf(logs.filter((l) => isLib(l.activity) && inWeek(l)))
+  const lib = logs.filter((l) => isLib(l.activity) && inWeek(l))
+  const libWeek = sumOf(lib)
+  const libDay = (d: number) => sumOf(lib.filter((l) => dayIndex(l.date) === d))
   const present = ACTIVITIES.filter(([a]) => segs.some((x) => x.l.activity === a))
   const fmtDay = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
   const ps = subjects.find((x) => x.id === picked?.subjectId)
@@ -419,6 +421,10 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
         {days.map((d, i) => (
           <span key={i} className={`text-center leading-tight ${isoDate(d) === today ? 'text-accent font-semibold' : 'text-muted'}`}>{DAYS[i]}<br />{d.getDate()}</span>
         ))}
+        {libWeek > 0 && [
+          <span key="lib" title="Horas en la biblioteca" className="text-[10px] leading-tight text-faint self-center">Bib</span>,
+          ...days.map((_, d) => <span key={`lib${d}`} className={`text-center text-[10px] leading-tight tabular-nums ${libDay(d) ? 'text-fg font-semibold' : 'text-faint'}`}>{fmtH(libDay(d))}</span>),
+        ]}
         <div className="relative" style={{ height: (H1 - H0) * PX }}>
           {Array.from({ length: H1 - H0 }, (_, i) => <span key={i} className="absolute right-0.5 text-[10px] leading-none text-faint tabular-nums" style={{ top: i * PX + 2 }}>{H0 + i}</span>)}
         </div>
@@ -426,8 +432,9 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
           <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${PX}px)` }}>
             {segs.filter((x) => x.d === d).map(({ l, a, b }) => (
               <button key={`${l.id}${a}`} type="button" onClick={() => setPicked(l)} aria-label={`${labelOf(l.activity)} ${l.startTime}–${l.endTime}`}
-                className={`absolute ${isLib(l.activity) ? 'left-0 w-1' : 'left-1.5 right-0'} rounded-[3px] ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
-                style={{ top: ((a - H0 * 60) / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }} />
+                // Biblioteca: zona sombreada al fondo (estás allí) y los bloques encima (lo que haces)
+                className={`absolute rounded-[3px] ${isLib(l.activity) ? 'inset-x-0 border-l-[3px] border-fg bg-fg/15' : 'left-1 right-0 z-[1]'} ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
+                style={{ top: ((a - H0 * 60) / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), ...(!isLib(l.activity) && { background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }) }} />
             ))}
           </div>
         ))}
@@ -439,10 +446,16 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
           {[ps?.code, lessons.find((x) => x.id === picked.lessonId)?.title, picked.notes].filter(Boolean).map((t) => ` · ${t}`).join('')} · {fmtMinutes(picked.totalMinutes)}
         </> : segs.length ? 'Toca un bloque para ver qué hiciste.' : 'Sin bloques con inicio y fin esta semana.'}
       </p>
-      {present.length > 0 && (
+      <p className="mt-2 flex items-center gap-1.5 text-caption text-muted">
+        <span className="h-3 w-2.5 shrink-0 rounded-[2px] border-l-[3px] border-fg bg-fg/15" />
+        {libWeek > 0
+          ? <>Biblioteca esta semana <span className="text-fg font-semibold tabular-nums">{fmtMinutes(libWeek)}</span></>
+          : 'Biblioteca: regístrala con + → Biblioteca (entrada y salida)'}
+      </p>
+      {present.some(([a]) => !isLib(a)) && (
         <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted">
-          {present.map(([a, label]) => (
-            <li key={a} className="flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ background: CAT_COLOR[a][0], opacity: CAT_COLOR[a][1] }} />{label}{isLib(a) && <span className="text-fg font-semibold tabular-nums">{fmtMinutes(libWeek)}</span>}</li>
+          {present.filter(([a]) => !isLib(a)).map(([a, label]) => (
+            <li key={a} className="flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ background: CAT_COLOR[a][0], opacity: CAT_COLOR[a][1] }} />{label}</li>
           ))}
         </ul>
       )}
