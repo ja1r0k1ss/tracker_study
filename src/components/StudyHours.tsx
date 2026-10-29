@@ -268,6 +268,8 @@ function ExamHeatmap({ today, dayOf, exams }: { today: string; dayOf: (d: string
 }
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
+// Columnas visibles de Cuándo estudio: franjas de 9h a 22h
+const VISIBLE_HOURS = HOURS.slice(9, 22)
 const pct = (study: number, rest: number) => (study + rest ? Math.round((study / (study + rest)) * 100) : 0)
 
 /** Espectrograma día×hora del estudio ponderado por tier + fila de foco (estudio / (estudio + descanso)) por hora. */
@@ -287,10 +289,10 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
   })
   const colSum = (g: number[][], h: number) => g.reduce((a, r) => a + r[h], 0)
   const hourStudy = HOURS.map((h) => colSum(study, h)), hourRest = HOURS.map((h) => colSum(rest, h))
-  const max = Math.max(1, ...quality.flat())
-  const peak = hourStudy.indexOf(Math.max(...hourStudy))
+  const max = Math.max(1, ...quality.flatMap((r) => VISIBLE_HOURS.map((h) => r[h])))
+  const peak = VISIBLE_HOURS.reduce((a, h) => (hourStudy[h] > hourStudy[a] ? h : a))
   // Mejor foco solo entre horas con ≥1h registrada, para que un bloque suelto no gane con un 100%
-  const focusHours = HOURS.filter((h) => hourStudy[h] + hourRest[h] >= 60)
+  const focusHours = VISIBLE_HOURS.filter((h) => hourStudy[h] + hourRest[h] >= 60)
   const best = focusHours.sort((a, b) => pct(hourStudy[b], hourRest[b]) - pct(hourStudy[a], hourRest[a]))[0]
   const untimed = logs.filter((l) => isStudy(l.activity) && !l.startTime).length
   const cell = (d: number, h: number) => picked?.[0] === d && picked[1] === h ? 'ring-1 ring-fg' : ''
@@ -301,17 +303,16 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
         <h3 className="text-body font-normal">Cuándo estudio</h3>
         <span className="text-caption text-muted">por hora</span>
       </div>
-      {!hourStudy.some(Boolean) ? (
+      {!VISIBLE_HOURS.some((h) => hourStudy[h]) ? (
         <p className="text-body-sm text-muted">Registra bloques con inicio y fin para ver tus horas.</p>
       ) : (
         <>
-          <div className="grid grid-cols-[1rem_repeat(24,minmax(0,1fr))] gap-px text-caption text-muted">
+          <div className="grid grid-cols-[1rem_repeat(13,minmax(0,1fr))] gap-px text-caption text-muted">
             <span />
-            {/* 8px y tracking justo: 24 números de dos cifras caben en un iPhone */}
-            {HOURS.map((h) => <span key={h} className="text-center text-[8px] leading-tight tracking-tighter tabular-nums">{h}</span>)}
+            {VISIBLE_HOURS.map((h) => <span key={h} className="text-center text-[10px] leading-tight tabular-nums">{h}</span>)}
             {DAYS.map((label, d) => [
               <span key={label} className="leading-none self-center">{label}</span>,
-              ...HOURS.map((h) => (
+              ...VISIBLE_HOURS.map((h) => (
                 <button key={`${d}-${h}`} type="button" onClick={() => setPicked([d, h])} aria-label={`${label} ${h}h: ${fmtMinutes(study[d][h])}`}
                   className={`relative aspect-square rounded-[2px] bg-line ${cell(d, h)}`}>
                   {study[d][h] > 0 && <span className="absolute inset-0 rounded-[2px] bg-accent" style={{ opacity: 0.2 + 0.8 * (quality[d][h] / max) }} />}
@@ -319,7 +320,7 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
               )),
             ])}
             <span className="leading-none self-center mt-1" title="Foco: estudio / (estudio + descanso)">F</span>
-            {HOURS.map((h) => (
+            {VISIBLE_HOURS.map((h) => (
               <button key={`f${h}`} type="button" onClick={() => setPicked([-1, h])} aria-label={`Foco ${h}h: ${pct(hourStudy[h], hourRest[h])}%`}
                 className={`relative mt-1 aspect-square rounded-[2px] bg-line ${cell(-1, h)}`}>
                 {hourStudy[h] + hourRest[h] > 0 && <span className="absolute inset-0 rounded-[2px] bg-done" style={{ opacity: Math.max(0.15, pct(hourStudy[h], hourRest[h]) / 100) }} />}
