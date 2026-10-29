@@ -1,6 +1,6 @@
 // Ejecutar: node src/lib/stats.test.ts
 import assert from 'node:assert/strict'
-import { daysUntil, isInteractiveWeek, progress, spreadByHour, weightOf } from './stats.ts'
+import { daysUntil, isInteractiveWeek, overlaps, progress, spreadByHour, weightOf } from './stats.ts'
 
 const s = (v1: boolean, v2: boolean) => ({ status: { notesDone: false, underlined: false, v1, v2, v3: false, v4: false, v5: false } })
 const p = progress([s(true, true), s(true, false)])
@@ -72,3 +72,10 @@ const sp = spreadByHour('09:30', '11:15')
 assert.deepEqual([sp[9], sp[10], sp[11], sp.reduce((a, b) => a + b)], [30, 60, 15, 105])
 const night = spreadByHour('23:30', '00:45')
 assert.deepEqual([night[23], night[24], night.reduce((a, b) => a + b)], [30, 45, 75])
+
+const b = (date: string, startTime: string, endTime: string) => ({ date, startTime, endTime })
+assert.equal(overlaps(b('2026-10-20', '10:00', '11:00'), b('2026-10-20', '10:30', '12:00')), true)
+assert.equal(overlaps(b('2026-10-20', '10:00', '11:00'), b('2026-10-20', '11:00', '12:00')), false) // seguidos
+assert.equal(overlaps(b('2026-10-20', '10:00', '11:00'), b('2026-10-21', '10:00', '11:00')), false)
+assert.equal(overlaps(b('2026-10-20', '23:00', '01:00'), b('2026-10-21', '00:30', '02:00')), true) // cruza medianoche
+assert.equal(overlaps(b('2026-10-20', '09:00', '12:00'), b('2026-10-20', '10:00', '11:00')), true) // contenido

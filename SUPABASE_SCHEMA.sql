@@ -41,7 +41,7 @@ create table if not exists public.study_logs (
 -- lesson_id sin FK: reiniciar el temario recrea las lecciones con ids nuevos.
 alter table public.study_logs add column if not exists activity  text;
 alter table public.study_logs drop constraint if exists study_logs_activity_check;
-alter table public.study_logs add constraint study_logs_activity_check check (activity in ('vueltas', 'lectura', 'apuntes', 'universidad', 'clase', 'interactivas', 'trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir'));
+alter table public.study_logs add constraint study_logs_activity_check check (activity in ('vueltas', 'lectura', 'apuntes', 'universidad', 'clase', 'interactivas', 'trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'biblioteca'));
 alter table public.study_logs add column if not exists lesson_id bigint;
 
 create index if not exists study_logs_date_idx on public.study_logs (date);

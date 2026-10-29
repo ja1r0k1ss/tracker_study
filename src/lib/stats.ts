@@ -1,4 +1,4 @@
-import type { Lesson, LessonStatus, StudyActivity, Subject } from '../db/schema'
+import type { Lesson, LessonStatus, StudyActivity, StudyLog, Subject } from '../db/schema'
 
 export const VUELTAS = ['v1', 'v2', 'v3', 'v4', 'v5'] as const
 
@@ -69,6 +69,16 @@ export function spreadByHour(start: string, end: string) {
     t = next
   }
   return out
+}
+
+type Timed = Pick<StudyLog, 'date' | 'startTime' | 'endTime'>
+// Date.parse de YYYY-MM-DD es medianoche UTC: días enteros, sin saltos por cambio de hora
+const span = (l: Timed) => { const s = Date.parse(l.date) / 6e4 + toMin(l.startTime!); return [s, s + minutesBetween(l.startTime!, l.endTime!)] }
+
+/** Dos bloques con inicio y fin se pisan (contando el cruce de medianoche). Tocarse en el borde no cuenta. */
+export function overlaps(a: Timed, b: Timed) {
+  const [a0, a1] = span(a), [b0, b1] = span(b)
+  return a0 < b1 && b0 < a1
 }
 
 /** Tiers por carga cognitiva real: peso de cada minuto en la "carga cognitiva" (lectura > vueltas >> apuntes, que se hacen con IA). */

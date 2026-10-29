@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { db, type Lesson, type StudyActivity, type StudyLog, type Subject } from '../db/schema'
 import { deleteLog, saveLog } from '../db/sync'
-import { fmtMinutes, isoDate, isStudy, minutesBetween, mondayOf, monthGrid, spreadByHour, TIER, toMin, vueltasOf, weightOf } from '../lib/stats'
+import { fmtMinutes, isoDate, isStudy, minutesBetween, mondayOf, monthGrid, overlaps, spreadByHour, TIER, toMin, vueltasOf, weightOf } from '../lib/stats'
 import { Badge } from './Badge'
 
 const PRESETS = [25, 30, 45, 60, 90, 120, 180]
@@ -11,11 +11,11 @@ const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const ACTIVITIES: [StudyActivity, string][] = [
   ['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['apuntes', 'Preparación apuntes'],
   ['clase', 'Clase'], ['interactivas', 'Preparación interactivas'], ['universidad', 'UPF / USC'],
-  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'],
+  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'], ['biblioteca', 'Biblioteca'],
 ]
 const GROUPS: [string, StudyActivity[]][] = [
   ['Estudio', ['vueltas', 'lectura', 'apuntes']], ['Universidad', ['clase', 'interactivas', 'universidad']],
-  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir']],
+  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'biblioteca']],
 ]
 const labelOf = (a?: StudyActivity) => ACTIVITIES.find(([k]) => k === a)?.[1] ?? 'Estudio'
 // Solo el estudio efectivo (vueltas, lectura, apuntes) va ligado a lección; clase e interactivas solo a asignatura
@@ -38,9 +38,14 @@ const Select = ({ className = '', ...props }: React.SelectHTMLAttributes<HTMLSel
   </span>
 )
 
-/** Botón "Registrar" + modal para añadir un bloque de estudio. */
-export function LogStudy() {
+// La biblioteca marca presencia: se solapa con lo que hagas dentro, así que solo choca con otra biblioteca
+const isLib = (a?: StudyActivity) => a === 'biblioteca'
+
+/** Botón "Registrar" + modal para añadir un bloque de estudio; con `edit` abre ese registro para editarlo. */
+export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
+  const busy = useRef(false) // ref y no estado: dos toques seguidos llegan antes del re-render
+  const [editId, setEditId] = useState('')
   const subjects = useLiveQuery(() => db.subjects.orderBy('examDate').toArray(), [], [])
   const [byRange, setByRange] = useState(true)
   const [date, setDate] = useState('')
@@ -62,23 +67,36 @@ export function LogStudy() {
     ? (start && end ? minutesBetween(start, end) : 0)
     : (Number(hours) || 0) * 60 + (Number(mins) || 0)
 
-  const open = () => {
-    setDate(isoDate(new Date())); setStart(''); setEnd(nowHHmm()); setHours(''); setMins(''); setNotes(''); setLessonId(''); setError('')
+  const open = (l?: StudyLog) => {
+    const untimed = l && !l.startTime
+    setEditId(l?.id ?? ''); setDate(l?.date ?? isoDate(new Date())); setByRange(!untimed)
+    setStart(l?.startTime ?? ''); setEnd(l ? l.endTime ?? '' : nowHHmm())
+    setHours(untimed ? String(Math.floor(l.totalMinutes / 60)) : ''); setMins(untimed ? String(l.totalMinutes % 60) : '')
+    setNotes(l?.notes ?? ''); setLessonId(l?.lessonId ? String(l.lessonId) : ''); setError('')
+    if (l) { setActivity(l.activity ?? 'vueltas'); setSubjectId(l.subjectId ?? '') }
     dialog.current?.showModal()
   }
+  useEffect(() => { if (edit) open(edit) }, [edit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
     if (total <= 0 || total > 1440) return setError(byRange ? 'Indica una hora de inicio y fin distintas.' : 'Indica una duración entre 1 minuto y 24 horas.')
+    if (busy.current) return
     const log: StudyLog = {
-      id: crypto.randomUUID(), date, totalMinutes: total, activity,
+      id: editId || crypto.randomUUID(), date, totalMinutes: total, activity,
       ...(withLesson(activity) && lessonId && { lessonId: Number(lessonId) }),
       ...(byRange && { startTime: start, endTime: end }),
       ...(sid && { subjectId: sid }),
       ...(notes.trim() && { notes: notes.trim() }),
     }
-    await saveLog(log)
-    dialog.current?.close()
+    busy.current = true
+    try {
+      const clash = log.startTime && (await db.studyLogs.toArray())
+        .find((o) => o.id !== log.id && o.startTime && o.endTime && isLib(o.activity) === isLib(activity) && overlaps(o, log))
+      if (clash) return setError(`Se solapa con ${labelOf(clash.activity)} ${clash.startTime}–${clash.endTime} de ese día.`)
+      await saveLog(log)
+      dialog.current?.close()
+    } finally { busy.current = false }
   }
 
   const tab = (on: boolean) => `flex-1 min-w-0 h-11 rounded-full text-body-sm font-normal ${on ? 'bg-ink text-on-ink' : 'text-muted'}`
@@ -86,13 +104,13 @@ export function LogStudy() {
   return (
     <>
       {/* Flotante: siempre a mano sin hacer scroll; respeta la barra de inicio del iPhone */}
-      <button onClick={open} aria-label="Registrar tiempo" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-14 grid place-items-center rounded-full bg-ink text-on-ink shadow-card">
+      <button onClick={() => open()} aria-label="Registrar tiempo" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-14 grid place-items-center rounded-full bg-ink text-on-ink shadow-card">
         <Plus size={24} />
       </button>
-      <dialog ref={dialog} className="w-[calc(100%-2rem)] max-w-md mx-auto my-auto max-h-[92dvh] overflow-x-hidden box-border rounded-card bg-card text-fg p-4 shadow-card backdrop:bg-black/40">
+      <dialog ref={dialog} onClose={onClose} className="w-[calc(100%-2rem)] max-w-md mx-auto my-auto max-h-[92dvh] overflow-x-hidden box-border rounded-card bg-card text-fg p-4 shadow-card backdrop:bg-black/40">
         <form onSubmit={save} className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-heading-sm">Registrar tiempo</h2>
+            <h2 className="text-heading-sm">{editId ? 'Editar registro' : 'Registrar tiempo'}</h2>
             <button type="button" onClick={() => dialog.current?.close()} aria-label="Cerrar" className="size-11 grid place-items-center rounded-full hover:bg-canvas"><X size={18} /></button>
           </div>
 
@@ -289,7 +307,8 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
         <>
           <div className="grid grid-cols-[1rem_repeat(24,minmax(0,1fr))] gap-px text-caption text-muted">
             <span />
-            {HOURS.map((h) => <span key={h} className="leading-tight whitespace-nowrap">{h % 6 ? '' : h}</span>)}
+            {/* 8px y tracking justo: 24 números de dos cifras caben en un iPhone */}
+            {HOURS.map((h) => <span key={h} className="text-center text-[8px] leading-tight tracking-tighter tabular-nums">{h}</span>)}
             {DAYS.map((label, d) => [
               <span key={label} className="leading-none self-center">{label}</span>,
               ...HOURS.map((h) => (
@@ -332,7 +351,7 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
   lectura: ['var(--color-study-1)', 1], vueltas: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
   clase: ['var(--color-class)', 1], interactivas: ['var(--color-interactive)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1], debate: ['var(--color-debate)', 1],
-  desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1],
+  desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], biblioteca: ['var(--color-fg)', 1],
 }
 const STUDY_CATS = ['lectura', 'vueltas', 'apuntes'] as const
 const PERIODS: [string, number][] = [['7 días', 7], ['30 días', 30], ['Todo', 0]]
@@ -378,7 +397,9 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
     const i = dayIndex(l.date), s = toMin(l.startTime), e = s + minutesBetween(l.startTime, l.endTime)
     return ([[i, s, Math.min(e, 1440)], [i + 1, 0, e - 1440]] as const).map(([d, a, b]) => [d, Math.max(a, H0 * 60), Math.min(b, H1 * 60)] as const).filter(([d, a, b]) => d >= 0 && d < 7 && b > a).map(([d, a, b]) => ({ l, d, a, b }))
   })
-  const untimed = logs.filter((l) => !l.startTime && dayIndex(l.date) >= 0 && dayIndex(l.date) < 7).length
+  const inWeek = (l: StudyLog) => dayIndex(l.date) >= 0 && dayIndex(l.date) < 7
+  const untimed = logs.filter((l) => !l.startTime && inWeek(l)).length
+  const libWeek = sumOf(logs.filter((l) => isLib(l.activity) && inWeek(l)))
   const present = ACTIVITIES.filter(([a]) => segs.some((x) => x.l.activity === a))
   const fmtDay = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
   const ps = subjects.find((x) => x.id === picked?.subjectId)
@@ -405,7 +426,7 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
           <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${PX}px)` }}>
             {segs.filter((x) => x.d === d).map(({ l, a, b }) => (
               <button key={`${l.id}${a}`} type="button" onClick={() => setPicked(l)} aria-label={`${labelOf(l.activity)} ${l.startTime}–${l.endTime}`}
-                className={`absolute inset-x-0 rounded-[3px] ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
+                className={`absolute ${isLib(l.activity) ? 'left-0 w-1' : 'left-1.5 right-0'} rounded-[3px] ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
                 style={{ top: ((a - H0 * 60) / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }} />
             ))}
           </div>
@@ -421,7 +442,7 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
       {present.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted">
           {present.map(([a, label]) => (
-            <li key={a} className="flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ background: CAT_COLOR[a][0], opacity: CAT_COLOR[a][1] }} />{label}</li>
+            <li key={a} className="flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ background: CAT_COLOR[a][0], opacity: CAT_COLOR[a][1] }} />{label}{isLib(a) && <span className="text-fg font-semibold tabular-nums">{fmtMinutes(libWeek)}</span>}</li>
           ))}
         </ul>
       )}
@@ -434,6 +455,7 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
 function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Subject[]; lessons: Lesson[] }) {
   const [period, setPeriod] = useState(30)
   const [showAll, setShowAll] = useState(false)
+  const [lessonSubject, setLessonSubject] = useState('')
   const now = new Date()
   const since = period ? isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - period + 1)) : ''
   const own = logs.filter((l) => l.date >= since)
@@ -468,6 +490,8 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
   const avgVuelta = passed.reduce((a, x) => a + phase(x, 'vueltas'), 0) / (passed.reduce((a, x) => a + Math.max(1, x.vueltas), 0) || 1)
   // "Te cuesta más": lo que cuesta procesarla (lectura) más lo que cuesta cada vuelta
   const hardest = [...byLesson].sort((a, b) => phase(b, 'lectura') + perVuelta(b) - phase(a, 'lectura') - perVuelta(a))[0]
+  const lessonSubjects = subjects.filter((s) => byLesson.some((x) => x.subject?.id === s.id))
+  const shown = byLesson.filter((x) => x.subject?.id === lessonSubject)
   const active = sumOf(study.filter((l) => l.activity === 'lectura' || l.activity === 'vueltas' || !l.activity))
   const operative = sumOf(study.filter((l) => l.activity === 'apuntes'))
   const noLesson = sumOf(study.filter((l) => l.lessonId === undefined))
@@ -533,16 +557,21 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
 
         <div>
           <p className={heading}>Por lección</p>
-          {byLesson.length === 0 && <p className="text-body-sm text-muted">Elige la lección al registrar para ver este desglose.</p>}
-          <ul className="space-y-2">
-            {(showAll ? byLesson : byLesson.slice(0, 8)).map(({ lesson, subject, minutes, sessions, vueltas, parts }) => (
+          {byLesson.length === 0 ? <p className="text-body-sm text-muted">Elige la lección al registrar para ver este desglose.</p> : (
+            <Select value={lessonSubject} onChange={(e) => { setLessonSubject(e.target.value); setShowAll(false) }} aria-label="Asignatura del análisis por lección">
+              <option value="">Elige una asignatura</option>
+              {lessonSubjects.map((s) => <option key={s.id} value={s.id}>{s.code} · {s.name}</option>)}
+            </Select>
+          )}
+          <ul className="mt-2 space-y-2">
+            {(showAll ? shown : shown.slice(0, 8)).map(({ lesson, subject, minutes, sessions, vueltas, parts }) => (
               <li key={lesson!.id}>
                 <p className="flex items-center gap-2 text-body-sm">
                   {subject && <Badge subject={subject} />}
                   <span className="flex-1 min-w-0 truncate">{lesson!.title}</span>
                   <span className="tabular-nums shrink-0">{fmtMinutes(minutes)}</span>
                 </p>
-                <div className="mt-1" style={{ width: `${(minutes / byLesson[0].minutes) * 100}%` }}><Stack parts={parts} /></div>
+                <div className="mt-1" style={{ width: `${(minutes / shown[0].minutes) * 100}%` }}><Stack parts={parts} /></div>
                 <p className="text-caption text-muted mt-0.5 truncate tabular-nums">
                   {sessions} {sessions === 1 ? 'sesión' : 'sesiones'} · {vueltas}/5 vueltas
                   {parts.filter(([, m]) => m).map(([a, m]) => ` · ${ROWS.find(([, k]) => k === a)![0]} ${fmtMinutes(m)}${a === 'vueltas' ? ` (${fmtMinutes(m / Math.max(1, vueltas))}/vuelta)` : ''}`).join('')}
@@ -550,9 +579,9 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
               </li>
             ))}
           </ul>
-          {byLesson.length > 8 && (
+          {shown.length > 8 && (
             <button type="button" onClick={() => setShowAll(!showAll)} className="mt-2 h-11 w-full rounded-full border border-line text-body-sm">
-              {showAll ? 'Ver menos' : `Ver las ${byLesson.length} lecciones`}
+              {showAll ? 'Ver menos' : `Ver las ${shown.length} lecciones`}
             </button>
           )}
           {noLesson > 0 && <p className="mt-2 text-caption text-faint">{fmtMinutes(noLesson)} de estudio sin lección asignada.</p>}
@@ -582,6 +611,8 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const allLogs = useLiveQuery(() => db.studyLogs.toArray(), [], [])
   const subjects = useLiveQuery(() => db.subjects.toArray(), [], [])
   const lessons = useLiveQuery(() => db.lessons.toArray(), [], [])
+  const [editing, setEditing] = useState<StudyLog | null>(null)
+  const counted = allLogs.filter((l) => !isLib(l.activity)) // la biblioteca es presencia, no tiempo nuevo: no suma al total
   const logs = allLogs.filter((l) => isStudy(l.activity)) // solo vueltas, lectura y apuntes suman horas de estudio; el resto se registra pero no suman horas de estudio
   const sum = sumOf
 
@@ -590,7 +621,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const week = Array.from({ length: 7 }, (_, i) => { const d = mondayOf(now); d.setDate(d.getDate() + i); return isoDate(d) })
   const month = today.slice(0, 7)
   const byDate = new Map<string, StudyLog[]>()
-  allLogs.forEach((l) => byDate.set(l.date, [...(byDate.get(l.date) ?? []), l]))
+  counted.forEach((l) => byDate.set(l.date, [...(byDate.get(l.date) ?? []), l]))
   const dayOf = (d: string): DayStats => {
     const own = byDate.get(d) ?? []
     const by = (a: StudyActivity) => sum(own.filter((l) => l.activity === a))
@@ -610,7 +641,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
         <button onClick={onBack} className="inline-flex items-center gap-1 h-11 rounded-full border border-line bg-card px-4 text-body-sm">
           <ArrowLeft size={16} /> Volver
         </button>
-        <LogStudy />
+        <LogStudy edit={editing} onClose={() => setEditing(null)} />
       </div>
       <h2 className="text-heading">Horas estudiadas</h2>
 
@@ -650,12 +681,15 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
 
       <HourMap logs={allLogs} />
 
-      <Analysis logs={allLogs} subjects={subjects} lessons={lessons} />
+      <Analysis logs={counted} subjects={subjects} lessons={lessons} />
 
       {recent.length > 0 && (
-        <section className="bg-card rounded-card shadow-card p-4">
-          <h3 className="text-body font-normal mb-1">Últimos registros</h3>
-          <ul className="divide-y divide-line">
+        <details className="group bg-card rounded-card shadow-card px-4">
+          <summary className="flex items-center justify-between min-h-12 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h3 className="text-body font-normal">Últimos registros</h3>
+            <ChevronDown size={18} className="text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="divide-y divide-line pb-2">
             {recent.map((l) => {
               const s = subjects.find((x) => x.id === l.subjectId)
               return (
@@ -670,14 +704,17 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
                     </p>
                   </div>
                   <span className="text-body-sm tabular-nums">{fmtMinutes(l.totalMinutes)}</span>
-                  <button onClick={() => confirm('¿Borrar este registro?') && deleteLog(l.id)} aria-label="Borrar registro" className="size-11 grid place-items-center rounded-full text-faint hover:bg-canvas">
+                  <button onClick={() => setEditing(l)} aria-label="Editar registro" className="size-11 -mr-2 grid place-items-center rounded-full text-faint hover:bg-canvas">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => deleteLog(l.id)} aria-label="Borrar registro" className="size-11 -mr-2 grid place-items-center rounded-full text-faint hover:bg-canvas">
                     <Trash2 size={16} />
                   </button>
                 </li>
               )
             })}
           </ul>
-        </section>
+        </details>
       )}
     </div>
   )
