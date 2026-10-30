@@ -383,17 +383,26 @@ function Stack({ parts }: { parts: [StudyActivity, number][] }) {
 
 const PX = 32 // alto de una hora en el visor semanal
 const H0 = 9, H1 = 22 // franja visible del visor semanal (lo de fuera se recorta)
+const SNAP = 15 // al estirar un bloque se ajusta a cuartos de hora, como el calendario de iCloud
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+type Drag = { l: StudyLog; edge: 'startTime' | 'endTime'; y0: number; m0: number; m: number; lo: number; hi: number }
 
 /** Visor semanal tipo agenda: cada bloque con inicio y fin en su hora real; los que cruzan medianoche se parten. */
-function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Subject[]; lessons: Lesson[] }) {
+function WeekView({ logs, subjects, lessons, onEdit }: { logs: StudyLog[]; subjects: Subject[]; lessons: Lesson[]; onEdit: (l: StudyLog) => void }) {
   const [offset, setOffset] = useState(0)
-  const [picked, setPicked] = useState<StudyLog | null>(null)
+  const [pickedId, setPickedId] = useState('')
+  const [drag, setDrag] = useState<Drag | null>(null)
+  const [menu, setMenu] = useState<{ l: StudyLog; x: number; y: number } | null>(null)
+  const [msg, setMsg] = useState('')
+  const picked = logs.find((l) => l.id === pickedId) ?? null // por id: tras estirar o editar se ve el registro ya actualizado
+  // Mientras se arrastra, el bloque se pinta con la hora provisional
+  const view = drag ? logs.map((l) => (l.id === drag.l.id ? { ...l, [drag.edge]: hhmm(drag.m) } : l)) : logs
   const today = isoDate(new Date())
   const monday = mondayOf(new Date())
   monday.setDate(monday.getDate() + offset * 7)
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(d.getDate() + i); return d })
   const dayIndex = (iso: string) => Math.round((+new Date(`${iso}T00:00`) - +monday) / 864e5)
-  const segs = logs.flatMap((l) => {
+  const segs = view.flatMap((l) => {
     if (!l.startTime || !l.endTime) return []
     const i = dayIndex(l.date), s = toMin(l.startTime), e = s + minutesBetween(l.startTime, l.endTime)
     return ([[i, s, Math.min(e, 1440)], [i + 1, 0, e - 1440]] as const).map(([d, a, b]) => [d, Math.max(a, H0 * 60), Math.min(b, H1 * 60)] as const).filter(([d, a, b]) => d >= 0 && d < 7 && b > a).map(([d, a, b]) => ({ l, d, a, b }))
@@ -406,6 +415,39 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
   const present = ACTIVITIES.filter(([a]) => segs.some((x) => x.l.activity === a))
   const fmtDay = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
   const ps = subjects.find((x) => x.id === picked?.subjectId)
+
+  const grab = (e: React.PointerEvent, l: StudyLog, edge: Drag['edge']) => {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const s = toMin(l.startTime!), en = toMin(l.endTime!), m0 = edge === 'startTime' ? s : en
+    setMsg('')
+    setDrag({ l, edge, y0: e.clientY, m0, m: m0, ...(edge === 'startTime' ? { lo: H0 * 60, hi: en - SNAP } : { lo: s + SNAP, hi: H1 * 60 }) })
+  }
+  const move = (e: React.PointerEvent) => {
+    if (!drag) return
+    const dy = e.clientY - drag.y0
+    // Zona muerta de unos píxeles: un toque sin mover no recoloca el bloque al cuarto de hora
+    const m = Math.abs(dy) < 6 ? drag.m0 : Math.min(drag.hi, Math.max(drag.lo, Math.round((drag.m0 + (dy / PX) * 60) / SNAP) * SNAP))
+    if (m !== drag.m) setDrag({ ...drag, m })
+  }
+  const drop = async () => {
+    if (!drag) return
+    const { l, edge, m, m0 } = drag
+    try {
+      if (m === m0) return
+      const next: StudyLog = { ...l, [edge]: hhmm(m) }
+      next.totalMinutes = minutesBetween(next.startTime!, next.endTime!)
+      const clash = logs.find((o) => o.id !== l.id && o.startTime && o.endTime && isLib(o.activity) === isLib(l.activity) && overlaps(o, next))
+      if (clash) return setMsg(`Se solapa con ${labelOf(clash.activity)} ${clash.startTime}–${clash.endTime}.`)
+      await saveLog(next)
+    } finally { setDrag(null) }
+  }
+  const handle = (l: StudyLog, edge: Drag['edge']) => (
+    <span onPointerDown={(e) => grab(e, l, edge)} onPointerMove={move} onPointerUp={drop} onPointerCancel={() => setDrag(null)}
+      className={`absolute inset-x-0 h-4 z-20 grid place-items-center touch-none cursor-ns-resize ${edge === 'startTime' ? '-top-2' : '-bottom-2'}`}>
+      <span className="size-2.5 rounded-full bg-card border-2 border-fg" />
+    </span>
+  )
 
   return (
     <section className="bg-card rounded-card shadow-card p-3">
@@ -431,22 +473,48 @@ function WeekView({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
         </div>
         {days.map((_, d) => (
           <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${PX}px)` }}>
-            {segs.filter((x) => x.d === d).map(({ l, a, b }) => (
-              <button key={`${l.id}${a}`} type="button" onClick={() => setPicked(l)} aria-label={`${labelOf(l.activity)} ${l.startTime}–${l.endTime}`}
+            {segs.filter((x) => x.d === d).map(({ l, a, b }) => {
+              const s = toMin(l.startTime!), e = toMin(l.endTime!)
+              // Tiradores solo en el bloque elegido, en bordes reales (no recortados) y sin cruce de medianoche
+              const resizable = picked?.id === l.id && e > s
+              return (
+              <button key={`${l.id}-${d}`} type="button" onClick={() => { setPickedId(l.id); setMsg('') }} aria-label={`${labelOf(l.activity)} ${l.startTime}–${l.endTime}`}
+                onContextMenu={(ev) => { ev.preventDefault(); setPickedId(l.id); setMenu({ l, x: ev.clientX, y: ev.clientY }) }}
                 // Biblioteca: zona sombreada al fondo (estás allí) y los bloques encima (lo que haces)
                 className={`absolute rounded-[3px] ${isLib(l.activity) ? 'inset-x-0 border-l-[3px] border-fg bg-fg/15' : 'left-1 right-0 z-[1]'} ${picked?.id === l.id ? 'ring-2 ring-fg z-10' : ''}`}
-                style={{ top: ((a - H0 * 60) / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), ...(!isLib(l.activity) && { background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }) }} />
-            ))}
+                style={{ top: ((a - H0 * 60) / 60) * PX, height: Math.max(2, ((b - a) / 60) * PX - 1), ...(!isLib(l.activity) && { background: l.activity ? CAT_COLOR[l.activity][0] : 'var(--color-accent)', opacity: l.activity ? CAT_COLOR[l.activity][1] : 1 }) }}>
+                {resizable && a === s && handle(l, 'startTime')}
+                {resizable && b === e && handle(l, 'endTime')}
+              </button>
+              )
+            })}
           </div>
         ))}
       </div>
-      <p className="mt-3 pt-2 border-t border-line text-caption text-muted truncate">
-        {picked ? <>
+      {menu && (
+        <div className="fixed inset-0 z-50" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
+          <div className="fixed w-36 rounded-input border border-line bg-card shadow-card py-1 text-body-sm" style={{ left: Math.min(menu.x, innerWidth - 152), top: Math.min(menu.y, innerHeight - 96) }}>
+            <button type="button" onClick={() => onEdit(menu.l)} className="flex w-full items-center gap-2 h-10 px-3 hover:bg-canvas"><Pencil size={14} /> Editar</button>
+            <button type="button" onClick={() => deleteLog(menu.l.id)} className="flex w-full items-center gap-2 h-10 px-3 text-red-600 hover:bg-canvas"><Trash2 size={14} /> Eliminar</button>
+          </div>
+        </div>
+      )}
+      <div className="mt-3 pt-2 border-t border-line flex items-center gap-1">
+      <p className="flex-1 min-w-0 text-caption text-muted truncate">
+        {drag ? <span className="text-fg font-semibold tabular-nums">{drag.edge === 'startTime' ? `${hhmm(drag.m)}–${drag.l.endTime}` : `${drag.l.startTime}–${hhmm(drag.m)}`}</span>
+        : msg ? <span className="text-red-600">{msg}</span>
+        : picked ? <>
           <span className="text-fg">{new Date(`${picked.date}T00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {picked.startTime}–{picked.endTime}</span>
           {' · '}<span className="text-fg font-semibold">{labelOf(picked.activity)}</span>
           {[ps?.code, lessons.find((x) => x.id === picked.lessonId)?.title, picked.notes].filter(Boolean).map((t) => ` · ${t}`).join('')} · {fmtMinutes(picked.totalMinutes)}
-        </> : segs.length ? 'Toca un bloque para ver qué hiciste.' : 'Sin bloques con inicio y fin esta semana.'}
+        </> : segs.length ? 'Toca un bloque para ver qué hiciste y estirarlo; clic derecho para editar o borrar.' : 'Sin bloques con inicio y fin esta semana.'}
       </p>
+      {/* En iPhone no hay clic derecho: editar y borrar también aquí */}
+      {picked && <>
+        <button type="button" onClick={() => onEdit(picked)} aria-label="Editar registro" className="size-9 shrink-0 grid place-items-center rounded-full text-muted hover:bg-canvas"><Pencil size={15} /></button>
+        <button type="button" onClick={() => deleteLog(picked.id)} aria-label="Borrar registro" className="size-9 shrink-0 grid place-items-center rounded-full text-muted hover:bg-canvas"><Trash2 size={15} /></button>
+      </>}
+      </div>
       <p className="mt-2 flex items-center gap-1.5 text-caption text-muted">
         <span className="h-3 w-2.5 shrink-0 rounded-[2px] border-l-[3px] border-fg bg-fg/15" />
         {libWeek > 0
@@ -689,7 +757,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
         </p>
       </section>
 
-      <WeekView logs={allLogs} subjects={subjects} lessons={lessons} />
+      <WeekView logs={allLogs} subjects={subjects} lessons={lessons} onEdit={setEditing} />
 
       <ExamHeatmap today={today} dayOf={dayOf} exams={exams} />
 
