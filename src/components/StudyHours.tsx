@@ -11,11 +11,11 @@ const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const ACTIVITIES: [StudyActivity, string][] = [
   ['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['apuntes', 'Preparación apuntes'],
   ['clase', 'Clase'], ['interactivas', 'Preparación interactivas'], ['universidad', 'UPF / USC'],
-  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'], ['biblioteca', 'Biblioteca'],
+  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'], ['biblioteca', 'Biblioteca'], ['libre', 'Día libre'],
 ]
 const GROUPS: [string, StudyActivity[]][] = [
   ['Estudio', ['vueltas', 'lectura', 'apuntes']], ['Universidad', ['clase', 'interactivas', 'universidad']],
-  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'biblioteca']],
+  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'biblioteca', 'libre']],
 ]
 const labelOf = (a?: StudyActivity) => ACTIVITIES.find(([k]) => k === a)?.[1] ?? 'Estudio'
 // Solo el estudio efectivo (vueltas, lectura, apuntes) va ligado a lección; clase e interactivas solo a asignatura
@@ -40,6 +40,8 @@ const Select = ({ className = '', ...props }: React.SelectHTMLAttributes<HTMLSel
 
 // La biblioteca marca presencia: se solapa con lo que hagas dentro, así que solo choca con otra biblioteca
 const isLib = (a?: StudyActivity) => a === 'biblioteca'
+// Día libre: ocupa el día entero, no suma horas y ese día no cuenta para los días cumplidos
+const isOff = (a?: StudyActivity) => a === 'libre'
 
 /** Botón "Registrar" + modal para añadir un bloque de estudio; con `edit` abre ese registro para editarlo. */
 export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: () => void }) {
@@ -63,7 +65,8 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
 
-  const total = byRange
+  const off = isOff(activity)
+  const total = off ? 1440 : byRange
     ? (start && end ? minutesBetween(start, end) : 0)
     : (Number(hours) || 0) * 60 + (Number(mins) || 0)
 
@@ -85,7 +88,7 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
     const log: StudyLog = {
       id: editId || crypto.randomUUID(), date, totalMinutes: total, activity,
       ...(withLesson(activity) && lessonId && { lessonId: Number(lessonId) }),
-      ...(byRange && { startTime: start, endTime: end }),
+      ...(byRange && !off && { startTime: start, endTime: end }),
       ...(sid && { subjectId: sid }),
       ...(notes.trim() && { notes: notes.trim() }),
     }
@@ -128,6 +131,7 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
             </Select>
           </label>
 
+          {!off && <>
           <div className="flex rounded-full border border-line p-1">
             <button type="button" onClick={() => setByRange(true)} className={tab(byRange)}>Inicio y fin</button>
             <button type="button" onClick={() => setByRange(false)} className={tab(!byRange)}>Duración</button>
@@ -164,6 +168,7 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
               </div>
             </div>
           )}
+          </>}
 
           <label className="block min-w-0 text-caption text-muted">Asignatura
             <Select value={sid} onChange={(e) => { setSubjectId(e.target.value); setLessonId('') }}
@@ -188,7 +193,7 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
 
           {error && <p className="text-body-sm text-red-600" role="alert">{error}</p>}
           <button type="submit" className="w-full h-12 rounded-full bg-ink text-on-ink text-body font-normal">
-            Guardar{total > 0 && ` · ${fmtMinutes(total)}`}
+            Guardar{total > 0 && !off && ` · ${fmtMinutes(total)}`}
           </button>
         </form>
       </dialog>
@@ -219,7 +224,7 @@ const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', '
 const shade = (min: number) => (min >= 240 ? 1 : min >= 120 ? 0.75 : min >= 60 ? 0.5 : 0.3)
 
 /** Calendario de constancia desde el mes actual hasta el del último examen; al tocar un día se ve su desglose en una línea. */
-function ExamHeatmap({ today, dayOf, exams }: { today: string; dayOf: (d: string) => DayStats; exams: Map<string, Subject[]> }) {
+function ExamHeatmap({ today, dayOf, exams, offDays }: { today: string; dayOf: (d: string) => DayStats; exams: Map<string, Subject[]>; offDays: Set<string> }) {
   const [picked, setPicked] = useState(today)
   const last = [...exams.keys()].filter((d) => d >= today).sort().at(-1) ?? today
   const [y0, m0] = today.split('-').map(Number), [y1, m1] = last.split('-').map(Number)
@@ -246,7 +251,7 @@ function ExamHeatmap({ today, dayOf, exams }: { today: string; dayOf: (d: string
                 const iso = isoDate(d), { study: min, quality } = dayOf(iso), exam = exams.get(iso)?.[0]
                 return (
                   <button key={iso} type="button" onClick={() => setPicked(iso)} title={`${iso} · ${fmtMinutes(min)}`} aria-label={`${iso}: ${fmtMinutes(min)}${exam ? ` · ${exam.examLabel} ${exam.code}` : ''}`}
-                    className={`relative aspect-square rounded-[2px] ${min ? '' : 'bg-line'} ${iso === picked ? 'ring-1 ring-fg' : iso === today ? 'ring-1 ring-accent' : ''}`}
+                    className={`relative aspect-square rounded-[2px] ${offDays.has(iso) ? 'bg-off' : min ? '' : 'bg-line'} ${iso === picked ? 'ring-1 ring-fg' : iso === today ? 'ring-1 ring-accent' : ''}`}
                     // outline y no ring: ring ya marca hoy/seleccionado y ambos usan box-shadow
                     style={exam ? { outline: `2px solid ${exam.color ?? 'var(--color-accent)'}`, outlineOffset: -2 } : undefined}>
                     {min > 0 && <span className="absolute inset-0 rounded-[2px] bg-done" style={{ opacity: shade(quality) }} />}
@@ -259,6 +264,7 @@ function ExamHeatmap({ today, dayOf, exams }: { today: string; dayOf: (d: string
       </div>
       <p className="mt-3 pt-2 border-t border-line text-caption text-muted truncate">
         <span className="text-fg">{new Date(`${picked}T00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+        {offDays.has(picked) && <span className="text-fg font-semibold"> · Día libre</span>}
         {pickedExams.map((s) => <span key={s.id} className="text-fg font-semibold"> · {s.examLabel} {s.code} {s.examTime}</span>)}
         {' · '}<span className="text-fg font-semibold tabular-nums">{fmtMinutes(p.study)} estudio</span>
         {detail.length > 0 && ` · ${detail.join(' · ')}`}
@@ -352,7 +358,7 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
   lectura: ['var(--color-study-1)', 1], vueltas: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
   clase: ['var(--color-class)', 1], interactivas: ['var(--color-interactive)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1], debate: ['var(--color-debate)', 1],
-  desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], biblioteca: ['var(--color-fg)', 1],
+  desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], biblioteca: ['var(--color-fg)', 1], libre: ['var(--color-off)', 1],
 }
 const STUDY_CATS = ['lectura', 'vueltas', 'apuntes'] as const
 const PERIODS: [string, number][] = [['7 días', 7], ['30 días', 30], ['Todo', 0]]
@@ -408,7 +414,8 @@ function WeekView({ logs, subjects, lessons, onEdit }: { logs: StudyLog[]; subje
     return ([[i, s, Math.min(e, 1440)], [i + 1, 0, e - 1440]] as const).map(([d, a, b]) => [d, Math.max(a, H0 * 60), Math.min(b, H1 * 60)] as const).filter(([d, a, b]) => d >= 0 && d < 7 && b > a).map(([d, a, b]) => ({ l, d, a, b }))
   })
   const inWeek = (l: StudyLog) => dayIndex(l.date) >= 0 && dayIndex(l.date) < 7
-  const untimed = logs.filter((l) => !l.startTime && inWeek(l)).length
+  const untimed = logs.filter((l) => !l.startTime && !isOff(l.activity) && inWeek(l)).length
+  const offOf = (d: number) => logs.find((l) => isOff(l.activity) && dayIndex(l.date) === d)
   const lib = logs.filter((l) => isLib(l.activity) && inWeek(l))
   const libWeek = sumOf(lib)
   const libDay = (d: number) => sumOf(lib.filter((l) => dayIndex(l.date) === d))
@@ -473,6 +480,13 @@ function WeekView({ logs, subjects, lessons, onEdit }: { logs: StudyLog[]; subje
         </div>
         {days.map((_, d) => (
           <div key={d} className="relative rounded-[2px] bg-canvas" style={{ height: (H1 - H0) * PX, backgroundImage: `repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px ${PX}px)` }}>
+            {offOf(d) && (
+              <button type="button" onClick={() => { setPickedId(offOf(d)!.id); setMsg('') }} aria-label="Día libre"
+                onContextMenu={(ev) => { ev.preventDefault(); setPickedId(offOf(d)!.id); setMenu({ l: offOf(d)!, x: ev.clientX, y: ev.clientY }) }}
+                className={`absolute inset-0 rounded-[2px] bg-off/70 grid place-items-center ${picked?.id === offOf(d)!.id ? 'ring-2 ring-fg' : ''}`}>
+                <span className="[writing-mode:vertical-rl] text-caption font-semibold text-fg">Día libre</span>
+              </button>
+            )}
             {segs.filter((x) => x.d === d).map(({ l, a, b }) => {
               const s = toMin(l.startTime!), e = toMin(l.endTime!)
               // Tiradores solo en el bloque elegido, en bordes reales (no recortados) y sin cruce de medianoche
@@ -504,9 +518,9 @@ function WeekView({ logs, subjects, lessons, onEdit }: { logs: StudyLog[]; subje
         {drag ? <span className="text-fg font-semibold tabular-nums">{drag.edge === 'startTime' ? `${hhmm(drag.m)}–${drag.l.endTime}` : `${drag.l.startTime}–${hhmm(drag.m)}`}</span>
         : msg ? <span className="text-red-600">{msg}</span>
         : picked ? <>
-          <span className="text-fg">{new Date(`${picked.date}T00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {picked.startTime}–{picked.endTime}</span>
+          <span className="text-fg">{new Date(`${picked.date}T00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}{picked.startTime && ` · ${picked.startTime}–${picked.endTime}`}</span>
           {' · '}<span className="text-fg font-semibold">{labelOf(picked.activity)}</span>
-          {[ps?.code, lessons.find((x) => x.id === picked.lessonId)?.title, picked.notes].filter(Boolean).map((t) => ` · ${t}`).join('')} · {fmtMinutes(picked.totalMinutes)}
+          {[ps?.code, lessons.find((x) => x.id === picked.lessonId)?.title, picked.notes].filter(Boolean).map((t) => ` · ${t}`).join('')}{!isOff(picked.activity) && ` · ${fmtMinutes(picked.totalMinutes)}`}
         </> : segs.length ? 'Toca un bloque para ver qué hiciste y estirarlo; clic derecho para editar o borrar.' : 'Sin bloques con inicio y fin esta semana.'}
       </p>
       {/* En iPhone no hay clic derecho: editar y borrar también aquí */}
@@ -694,7 +708,8 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const subjects = useLiveQuery(() => db.subjects.toArray(), [], [])
   const lessons = useLiveQuery(() => db.lessons.toArray(), [], [])
   const [editing, setEditing] = useState<StudyLog | null>(null)
-  const counted = allLogs.filter((l) => !isLib(l.activity)) // la biblioteca es presencia, no tiempo nuevo: no suma al total
+  const counted = allLogs.filter((l) => !isLib(l.activity) && !isOff(l.activity)) // la biblioteca es presencia y el día libre no es tiempo: no suman al total
+  const offDays = new Set(allLogs.filter((l) => isOff(l.activity)).map((l) => l.date))
   const logs = allLogs.filter((l) => isStudy(l.activity)) // solo vueltas, lectura y apuntes suman horas de estudio; el resto se registra pero no suman horas de estudio
   const sum = sumOf
 
@@ -713,6 +728,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const exams = new Map<string, Subject[]>()
   subjects.forEach((s) => s.examDate && exams.set(s.examDate, [...(exams.get(s.examDate) ?? []), s]))
   const doneDays = perDay.filter((d) => d.study > 0).length
+  const workDays = week.filter((d) => !offDays.has(d)).length
   const weekStudy = perDay.reduce((a, d) => a + d.study, 0)
 
   const recent = [...allLogs].sort((a, b) => `${b.date}${b.startTime ?? ''}`.localeCompare(`${a.date}${a.startTime ?? ''}`)).slice(0, 20)
@@ -743,7 +759,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
           {week.map((d, i) => (
             <span key={d} className={`flex flex-col items-center leading-tight ${d === today ? 'text-accent font-semibold' : 'text-muted'}`}>
               {DAYS[i]}<span>{Number(d.slice(8))}</span>
-              <span className={`mt-0.5 size-2.5 rounded-full ${perDay[i].study ? 'bg-done' : 'bg-line'}`} aria-label={perDay[i].study ? 'Cumplido' : 'Sin estudio'} />
+              <span className={`mt-0.5 size-2.5 rounded-full ${offDays.has(d) ? 'bg-off' : perDay[i].study ? 'bg-done' : 'bg-line'}`} aria-label={offDays.has(d) ? 'Día libre' : perDay[i].study ? 'Cumplido' : 'Sin estudio'} />
             </span>
           ))}
           {ROWS.filter(([, key, , , sub]) => sub || key === 'study' || key === 'total' || perDay.some((d) => d[key])).map(([label, key, cls, full, sub]) => [
@@ -752,14 +768,14 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
           ])}
         </div>
         <p className="mt-3 pt-2 border-t border-line text-body-sm">
-          Días cumplidos esta semana: <span className="font-semibold tabular-nums whitespace-nowrap">{doneDays} / 7</span>
+          Días cumplidos esta semana: <span className="font-semibold tabular-nums whitespace-nowrap">{doneDays} / {workDays}</span>
           {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
         </p>
       </section>
 
       <WeekView logs={allLogs} subjects={subjects} lessons={lessons} onEdit={setEditing} />
 
-      <ExamHeatmap today={today} dayOf={dayOf} exams={exams} />
+      <ExamHeatmap today={today} dayOf={dayOf} exams={exams} offDays={offDays} />
 
       <HourMap logs={allLogs} />
 
@@ -785,7 +801,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
                       {s && <Badge subject={s} />} {[labelOf(l.activity), lessons.find((x) => x.id === l.lessonId)?.title, l.notes].filter(Boolean).join(' · ')}
                     </p>
                   </div>
-                  <span className="text-body-sm tabular-nums">{fmtMinutes(l.totalMinutes)}</span>
+                  <span className="text-body-sm tabular-nums">{isOff(l.activity) ? '' : fmtMinutes(l.totalMinutes)}</span>
                   <button onClick={() => setEditing(l)} aria-label="Editar registro" className="size-11 -mr-2 grid place-items-center rounded-full text-faint hover:bg-canvas">
                     <Pencil size={16} />
                   </button>
