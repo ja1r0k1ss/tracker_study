@@ -2,11 +2,17 @@
 import assert from 'node:assert/strict'
 import { daysUntil, isInteractiveWeek, overlaps, progress, spreadByHour, weightOf } from './stats.ts'
 
-const s = (v1: boolean, v2: boolean) => ({ status: { notesDone: false, underlined: false, v1, v2, v3: false, v4: false, v5: false } })
+const s = (v1: boolean, v2: boolean) => ({ subjectId: 'x', lessonNumber: 1, status: { notesDone: false, underlined: false, v1, v2, v3: false, v4: false, v5: false } })
 const p = progress([s(true, true), s(true, false)])
 assert.deepEqual(p.perVuelta, [1, 0.5, 0, 0, 0])
 assert.equal(p.global, 0.3)
 assert.equal(progress([]).global, 0)
+// pesos por páginas: media 1 por asignatura; L2 (39 págs) pesa más que L6 (6 págs)
+import { lessonWeight } from './stats.ts'
+const dpc = Array.from({ length: 9 }, (_, i) => lessonWeight({ subjectId: 'dpc1', lessonNumber: i + 1 }))
+assert.ok(Math.abs(dpc.reduce((a, b) => a + b, 0) - 9) < 1e-9)
+assert.ok(dpc[1] > 1.5 && dpc[5] < 0.5)
+assert.equal(lessonWeight({ subjectId: 'ojp', lessonNumber: 1 }), 1)
 
 const weeks = ['2026-10-05']
 assert.equal(isInteractiveWeek(weeks, new Date('2026-10-05T00:00')), true)

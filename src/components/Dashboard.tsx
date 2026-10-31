@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { BarChart3, Check, ChevronDown, ChevronRight, Clock, Highlighter, PenLine } from 'lucide-react'
 import { db } from '../db/schema'
-import { examDateOf, fmtMinutes, isoDate, isStudy, progress, VUELTAS, vueltasOf } from '../lib/stats'
+import { examDateOf, fmtMinutes, isoDate, isStudy, lessonWeight, progress, VUELTAS, vueltasOf } from '../lib/stats'
 import { ProgressBar } from './ProgressBar'
 import { Badge } from './Badge'
 import { LogStudy } from './StudyHours'
@@ -85,6 +85,7 @@ export function Dashboard({ onOpen, onStats }: { onOpen: (id: string) => void; o
                         <li key={l.id} className="flex items-center gap-2 py-1 text-caption">
                           <span className="w-5 shrink-0 text-faint tabular-nums">{l.lessonNumber}</span>
                           <span className="flex-1 min-w-0 truncate">{l.title.replace(/^\S+ [^:]+: /, '')}</span>
+                          <span className="text-faint tabular-nums" title="Peso en el temario">{Math.round((lessonWeight(l) / own.reduce((a, o) => a + lessonWeight(o), 0)) * 100)}%</span>
                           <PenLine size={13} aria-label={l.status.notesDone ? 'Apuntes hechos' : 'Sin apuntes'} className={l.status.notesDone ? 'text-fg' : 'text-faint opacity-40'} />
                           <Highlighter size={13} aria-label={l.status.underlined ? 'Subrayada' : 'Sin subrayar'} className={l.status.underlined ? 'text-fg' : 'text-faint opacity-40'} />
                           <span className={`w-6 text-center rounded tabular-nums ${n ? 'bg-ink text-on-ink' : 'text-faint'}`}>{n}L</span>

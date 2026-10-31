@@ -2,10 +2,24 @@ import type { Lesson, LessonStatus, StudyActivity, StudyLog, Subject } from '../
 
 export const VUELTAS = ['v1', 'v2', 'v3', 'v4', 'v5'] as const
 
-/** Fracción (0-1) de lecciones con cada vuelta hecha, y media global sobre las 5 vueltas. */
-export function progress(lessons: Pick<Lesson, 'status'>[]) {
-  const n = lessons.length || 1
-  const perVuelta = VUELTAS.map((k) => lessons.filter((l) => l.status[k]).length / n)
+/** Páginas por lección [apuntes, esquema], en orden L1..Ln. Una página que comparten dos lecciones cuenta media para cada una. */
+const PAGES: Record<string, [number, number][]> = {
+  dpc1: [[11.5, 3], [39, 8], [12, 3], [6, 3], [17.5, 4], [6, 2], [13, 4], [36, 8], [36, 3]],
+}
+
+/** Peso de la lección dentro de su asignatura (media 1): mitad por extensión de apuntes, mitad por esquema. Sin datos = 1. */
+export function lessonWeight(l: Pick<Lesson, 'subjectId' | 'lessonNumber'>) {
+  const p = PAGES[l.subjectId], row = p?.[l.lessonNumber - 1]
+  if (!row) return 1
+  const total = (i: 0 | 1) => p.reduce((a, r) => a + r[i], 0)
+  return (p.length * (row[0] / total(0) + row[1] / total(1))) / 2
+}
+
+/** Fracción (0-1) del temario con cada vuelta hecha, ponderada por peso de lección, y media global sobre las 5 vueltas. */
+export function progress(lessons: Pick<Lesson, 'status' | 'subjectId' | 'lessonNumber'>[]) {
+  const w = lessons.map(lessonWeight)
+  const n = w.reduce((a, b) => a + b, 0) || 1
+  const perVuelta = VUELTAS.map((k) => lessons.reduce((a, l, i) => a + (l.status[k] ? w[i] : 0), 0) / n)
   return { perVuelta, global: perVuelta.reduce((a, b) => a + b, 0) / VUELTAS.length }
 }
 
