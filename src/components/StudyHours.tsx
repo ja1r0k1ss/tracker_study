@@ -147,6 +147,7 @@ export function LogStudy({ edit, onClose }: { edit?: StudyLog | null; onClose?: 
               </label>
               <button type="button" onClick={() => setStart(nowHHmm())} className="h-11 min-w-0 px-2 truncate rounded-full border border-line text-body-sm">Inicio: ahora</button>
               <button type="button" onClick={() => setEnd(nowHHmm())} className="h-11 min-w-0 px-2 truncate rounded-full border border-line text-body-sm">Fin: ahora</button>
+              <button type="button" disabled={!start} onClick={() => setEnd(hhmm((toMin(start) + 50) % 1440))} className="col-span-2 h-11 min-w-0 px-2 truncate rounded-full border border-line text-body-sm disabled:opacity-50">Fin: inicio + 50 min</button>
             </div>
           ) : (
             <div className="space-y-2">
