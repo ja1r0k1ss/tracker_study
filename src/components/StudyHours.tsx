@@ -221,14 +221,15 @@ const ROWS: [string, keyof DayStats, string, string, boolean?][] = [
   ['Desplaz.', 'desplazamiento', 'text-muted', 'Desplazamientos'], ['Descanso', 'descanso', 'text-muted', 'Descanso'], ['Dormir', 'dormir', 'text-muted', 'Dormir'], ['Total global', 'total', 'text-fg font-semibold', 'Total global (todo el tiempo registrado)'],
 ]
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-// Intensidad por horas ponderadas por carga cognitiva (lectura 100%, vueltas 85%, apuntes 15%): <1h, <2h, <4h, ≥4h
+// Intensidad por horas ponderadas por carga cognitiva (lectura 100%, vueltas 85%, apuntes 5%): <1h, <2h, <4h, ≥4h
 const shade = (min: number) => (min >= 240 ? 1 : min >= 120 ? 0.75 : min >= 60 ? 0.5 : 0.3)
 
-/** Calendario de constancia desde el mes actual hasta el del último examen; al tocar un día se ve su desglose en una línea. */
+/** Calendario de constancia desde el inicio del semestre (oct 2026) hasta el mes del último examen; al tocar un día se ve su desglose en una línea. */
 function ExamHeatmap({ today, dayOf, exams, offDays }: { today: string; dayOf: (d: string) => DayStats; exams: Map<string, Subject[]>; offDays: Set<string> }) {
   const [picked, setPicked] = useState(today)
   const last = [...exams.keys()].filter((d) => d >= today).sort().at(-1) ?? today
-  const [y0, m0] = today.split('-').map(Number), [y1, m1] = last.split('-').map(Number)
+  // shortcut: inicio de semestre fijo (oct 2026), cambiar al empezar el siguiente semestre
+  const [y0, m0] = (today < '2026-10' ? today : '2026-10').split('-').map(Number), [y1, m1] = last.split('-').map(Number)
   const months = Array.from({ length: (y1 - y0) * 12 + m1 - m0 + 1 }, (_, i) => new Date(y0, m0 - 1 + i, 1))
   const days = months.map((d) => monthGrid(d.getFullYear(), d.getMonth()))
   const doneDays = days.flat().filter((d) => d && dayOf(isoDate(d)).study > 0).length
@@ -355,9 +356,9 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
   )
 }
 
-// Estudio en un mismo tono por niveles (más intenso = tier más alto); el resto con color propio
+// Estudio en un mismo tono: vueltas el más intenso, luego lectura, apuntes el más claro; el resto con color propio
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
-  lectura: ['var(--color-study-1)', 1], vueltas: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
+  vueltas: ['var(--color-study-1)', 1], lectura: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
   clase: ['var(--color-class)', 1], interactivas: ['var(--color-interactive)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1], debate: ['var(--color-debate)', 1],
   desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], biblioteca: ['var(--color-fg)', 1], libre: ['var(--color-off)', 1],
 }
@@ -612,7 +613,7 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
               <Kpi label="Activo" value={fmtMinutes(active)} sub={`${Math.round((active / effective) * 100)}% · L + V`} />
               <Kpi label="Operativo" value={fmtMinutes(operative)} sub={`${Math.round((operative / effective) * 100)}% · apuntes`} />
               <Kpi label="Carga cognitiva" value={`${Math.round(load * 100)}%`} sub="ponderada"
-                title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%" />
+                title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 5%" />
             </div>
             <div className="mt-2 flex h-2 rounded-full bg-line overflow-hidden">
               <span style={{ width: `${(active / effective) * 100}%`, background: 'var(--color-study-1)' }} />
@@ -770,7 +771,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
         </div>
         <p className="mt-3 pt-2 border-t border-line text-body-sm">
           Días cumplidos esta semana: <span className="font-semibold tabular-nums whitespace-nowrap">{doneDays} / {workDays}</span>
-          {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 15%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
+          {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 5%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
         </p>
       </section>
 
