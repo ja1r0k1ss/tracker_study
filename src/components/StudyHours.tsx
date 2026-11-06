@@ -11,11 +11,11 @@ const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const ACTIVITIES: [StudyActivity, string][] = [
   ['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['apuntes', 'Preparación apuntes'],
   ['clase', 'Clase'], ['interactivas', 'Preparación interactivas'], ['universidad', 'UPF / USC'],
-  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'], ['biblioteca', 'Biblioteca'], ['libre', 'Día libre'],
+  ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'], ['gimnasio', 'Gimnasio'], ['biblioteca', 'Biblioteca'], ['libre', 'Día libre'],
 ]
 const GROUPS: [string, StudyActivity[]][] = [
   ['Estudio', ['vueltas', 'lectura', 'apuntes']], ['Universidad', ['clase', 'interactivas', 'universidad']],
-  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'biblioteca', 'libre']],
+  ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'gimnasio', 'biblioteca', 'libre']],
 ]
 const labelOf = (a?: StudyActivity) => ACTIVITIES.find(([k]) => k === a)?.[1] ?? 'Estudio'
 // Solo el estudio efectivo (vueltas, lectura, apuntes) va ligado a lección; clase e interactivas solo a asignatura
@@ -360,7 +360,7 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
   vueltas: ['var(--color-study-1)', 1], lectura: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
   clase: ['var(--color-class)', 1], interactivas: ['var(--color-interactive)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1], debate: ['var(--color-debate)', 1],
-  desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], biblioteca: ['var(--color-fg)', 1], libre: ['var(--color-off)', 1],
+  desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], gimnasio: ['var(--color-gym)', 1], biblioteca: ['var(--color-fg)', 1], libre: ['var(--color-off)', 1],
 }
 const STUDY_CATS = ['lectura', 'vueltas', 'apuntes'] as const
 const PERIODS: [string, number][] = [['7 días', 7], ['30 días', 30], ['Todo', 0]]
