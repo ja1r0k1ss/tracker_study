@@ -53,7 +53,7 @@ create index if not exists subjects_exam_date_idx on public.subjects (exam_date)
 do $$
 declare t text;
 begin
-  foreach t in array array['lessons', 'study_logs'] loop
+  foreach t in array array['subjects', 'lessons', 'study_logs'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

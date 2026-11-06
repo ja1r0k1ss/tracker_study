@@ -99,23 +99,36 @@ export async function startSync() {
   const sb = supabase
   await pull(sb)
 
+  // Un solo pull a la vez: reconexiones, foco y sondeo pueden coincidir.
+  let running: Promise<void> | null = null
+  const resync = () => { running ??= pull(sb).catch(console.error).finally(() => { running = null }); return running }
+  // Al (re)conectar el websocket se descarga todo: Realtime no reenvía lo emitido mientras estaba caído (reposo, pestaña en segundo plano, red).
+  const onStatus = (s: string) => { if (s === 'SUBSCRIBED') resync() }
+
   sb.channel('public:lessons')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'lessons' }, (p) => {
       // shortcut: un cambio remoto pisa uno local aún pendiente de la misma lección; añadir updated_at si molesta
       if (p.eventType === 'DELETE') db.lessons.delete((p.old as { id: number }).id)
       else db.lessons.put(fromRow<Lesson>(p.new))
     })
-    .subscribe()
+    .subscribe(onStatus)
   sb.channel('public:study_logs') // canal propio: un fallo aquí no corta el de lessons
     .on('postgres_changes', { event: '*', schema: 'public', table: 'study_logs' }, (p) => {
       if (p.eventType === 'DELETE') db.studyLogs.delete((p.old as { id: string }).id)
       else db.studyLogs.put(fromRow<StudyLog>(p.new))
     })
-    .subscribe()
-  // iOS corta el websocket con la app en segundo plano y Realtime no reenvía lo perdido: al volver, se descarga de nuevo.
-  const resync = () => pull(sb).catch(console.error)
+    .subscribe(onStatus)
+  sb.channel('public:subjects')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects' }, (p) => {
+      if (p.eventType === 'DELETE') db.subjects.delete((p.old as { id: string }).id)
+      else db.subjects.put(fromRow<Subject>(p.new))
+    })
+    .subscribe(onStatus)
+  // iOS corta el websocket en segundo plano y en el ordenador la ventana puede seguir visible sin foco: se descarga al volver y cada 30 s.
   addEventListener('online', resync)
+  addEventListener('focus', resync)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resync() })
+  setInterval(() => { if (document.visibilityState === 'visible') resync() }, 30_000)
 }
 
 /** Bloques de estudio: sube lo pendiente de este dispositivo (creado/editado/borrado offline) y luego la nube manda. */
