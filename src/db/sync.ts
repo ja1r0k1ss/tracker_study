@@ -133,11 +133,20 @@ export async function startSync() {
 
 /** Bloques de estudio: sube lo pendiente de este dispositivo (creado/editado/borrado offline) y luego la nube manda. */
 async function syncLogs(sb: NonNullable<typeof supabase>) {
-  await flushPendingLogs()
+  // Si la subida falla (p. ej. la nube rechaza un bloque) se descarga igual y se conservan los pendientes locales.
+  const ids = readPendingLogs()
+  const unsent = await flushPendingLogs().then(() => null, async (e) => {
+    console.error(e)
+    return (await db.studyLogs.bulkGet(ids)).filter((l): l is StudyLog => !!l)
+  })
   const logs = await sb.from('study_logs').select('*')
   if (logs.error) throw logs.error
   await db.transaction('rw', db.studyLogs, async () => {
     await db.studyLogs.clear()
     await db.studyLogs.bulkAdd(logs.data.map((r) => fromRow<StudyLog>(r)))
+    if (unsent) {
+      await db.studyLogs.bulkDelete(ids.filter((id) => !unsent.some((l) => l.id === id))) // borrados locales aún sin confirmar
+      await db.studyLogs.bulkPut(unsent)
+    }
   })
 }
