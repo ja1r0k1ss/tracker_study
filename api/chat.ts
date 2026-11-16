@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createHash, timingSafeEqual } from 'node:crypto'
 
 const client = new Anthropic()
 
@@ -10,10 +11,16 @@ Cómo leer los datos:
 - Lecciones: N (apuntes hechos), S (subrayado), v1..v5 = vueltas hechas (son consecutivas).
 - Bloques: fecha, inicio-fin, minutos, actividad, asignatura, lección. Estudio efectivo = lectura, vueltas y apuntes (pesos de carga cognitiva 1 / 0,85 / 0,05). "libre" = día libre. "biblioteca" marca presencia y se solapa con otras actividades.`
 
-// Tope por petición: el endpoint es público y cada llamada se paga
+// Tope por petición: cada llamada se paga
 const MAX_BODY = 1_500_000
 
+const sha = (s: string) => createHash('sha256').update(s).digest()
+
 export async function POST(req: Request) {
+  // Contraseña propia (CHAT_PASSWORD en Vercel): sin ella nadie más puede gastar de la clave de Anthropic
+  const pass = process.env.CHAT_PASSWORD
+  if (!pass) return new Response('Falta CHAT_PASSWORD en Vercel.', { status: 500 })
+  if (!timingSafeEqual(sha(req.headers.get('x-chat-password') ?? ''), sha(pass))) return new Response('Contraseña incorrecta', { status: 401 })
   const raw = await req.text()
   if (raw.length > MAX_BODY) return new Response('Demasiados datos', { status: 413 })
   let body: { context?: unknown; messages?: unknown }

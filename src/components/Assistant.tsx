@@ -5,6 +5,9 @@ import { daysUntil, examDateOf, isoDate, progress, vueltasOf } from '../lib/stat
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 const KEY = 'lextracker-chat'
+const PASS = 'lextracker-chat-password'
+const getPass = () => { try { return localStorage.getItem(PASS) ?? '' } catch { return '' } }
+const setPassStored = (p: string) => { try { p ? localStorage.setItem(PASS, p) : localStorage.removeItem(PASS) } catch { /* modo privado */ } }
 const load = (): Msg[] => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') } catch { return [] } }
 const SUGGESTIONS = ['¿Cómo voy esta semana?', '¿Qué asignatura llevo más atrasada?', '¿Qué debería priorizar hoy?']
 
@@ -35,6 +38,7 @@ export function Assistant({ onBack }: { onBack: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>(load)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pass, setPass] = useState(getPass)
   const end = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -52,7 +56,8 @@ export function Assistant({ onBack }: { onBack: () => void }) {
     const write = (s: string) => setMsgs((m) => [...m.slice(0, -1), { role: 'assistant', content: s }])
     let out = ''
     try {
-      const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ context: await buildContext(), messages: history }) })
+      const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-chat-password': pass }, body: JSON.stringify({ context: await buildContext(), messages: history }) })
+      if (res.status === 401) { setPassStored(''); setPass(''); setMsgs(msgs); setText(q); setBusy(false); return }
       if (!res.ok || !res.body) throw new Error(await res.text())
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
       for (;;) { const { done, value } = await reader.read(); if (done) break; out += value; write(out) }
@@ -62,6 +67,18 @@ export function Assistant({ onBack }: { onBack: () => void }) {
     }
     setBusy(false)
   }
+
+  if (!pass) return (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); const p = new FormData(e.currentTarget).get('p') as string; if (p) { setPassStored(p); setPass(p) } }}>
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1 h-11 rounded-full border border-line bg-card px-4 text-body-sm">
+        <ArrowLeft size={16} /> Volver
+      </button>
+      <h2 className="text-heading">Asistente</h2>
+      <p className="text-body-sm text-muted">Introduce la contraseña del asistente. Se guarda en este dispositivo.</p>
+      <input name="p" type="password" autoComplete="current-password" aria-label="Contraseña" className="block w-full h-11 px-3 rounded-input border border-line bg-canvas text-body" />
+      <button className="h-11 w-full rounded-full bg-ink text-on-ink text-body-sm">Entrar</button>
+    </form>
+  )
 
   return (
     <div className="space-y-4">
