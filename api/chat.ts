@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       } catch (e) {
         console.error(e)
         const msg = e instanceof Anthropic.AuthenticationError ? 'Falta o es inválida la ANTHROPIC_API_KEY en Vercel.'
+          : e instanceof Anthropic.BadRequestError && /credit/i.test(e.message) ? 'La cuenta de Anthropic no tiene saldo: añade créditos en platform.claude.com.'
           : e instanceof Anthropic.RateLimitError ? 'Límite de uso alcanzado, prueba en un rato.'
           : 'Error al contactar con Claude.'
         ctrl.enqueue(enc.encode(`\n\n⚠️ ${msg}`))
