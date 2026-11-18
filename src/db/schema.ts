@@ -41,13 +41,13 @@ export interface Lesson {
 }
 
 /** Bloque de estudio. En Supabase: study_logs (subject_id, start_time, end_time, total_minutes). */
-export type StudyActivity = 'vueltas' | 'lectura' | 'apuntes' | 'universidad' | 'clase' | 'interactivas' | 'trabajo' | 'proyectos' | 'debate' | 'desplazamiento' | 'descanso' | 'dormir' | 'gimnasio' | 'biblioteca' | 'libre'
+export type StudyActivity = 'vueltas' | 'lectura' | 'apuntes' | 'examen' | 'universidad' | 'clase' | 'interactivas' | 'trabajo' | 'proyectos' | 'debate' | 'desplazamiento' | 'descanso' | 'dormir' | 'gimnasio' | 'biblioteca' | 'libre'
 
 export interface StudyLog {
   id: string // uuid: los ids autoincrementales de Dexie chocarían entre dispositivos
   subjectId?: string
   activity?: StudyActivity // ausente en registros anteriores a este campo
-  lessonId?: number // solo en 'vueltas', 'lectura' y 'apuntes'
+  lessonId?: number // solo en 'vueltas', 'lectura', 'examen' y 'apuntes'
   date: string // YYYY-MM-DD
   startTime?: string // HH:mm; vacío si se registró solo la duración
   endTime?: string // HH:mm

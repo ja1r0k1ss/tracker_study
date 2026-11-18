@@ -19,6 +19,7 @@
   /* Estudio: un solo tono en 3 niveles bien separados (tier 1 el más intenso) */
   --color-study-1: #1d4ed8; /* Vueltas */
   --color-study-2: #60a5fa; /* Lectura y subrayado */
+  --color-study-exam: #93c5fd; /* Práctica examen */
   --color-study-3: #bfdbfe; /* Apuntes */
   --color-class: #14b8a6; /* Clase */
   --color-interactive: #c2410c; /* Preparación interactivas */

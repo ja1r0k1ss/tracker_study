@@ -95,8 +95,8 @@ export function overlaps(a: Timed, b: Timed) {
   return a0 < b1 && b0 < a1
 }
 
-/** Tiers por carga cognitiva real: peso de cada minuto en la "carga cognitiva" (lectura > vueltas >> apuntes, que se hacen con IA). */
-export const TIER: Partial<Record<StudyActivity, number>> = { lectura: 1, vueltas: 0.85, apuntes: 0.05 }
+/** Tiers por carga cognitiva real: peso de cada minuto en la "carga cognitiva" (lectura > vueltas > práctica examen >> apuntes, que se hacen con IA). */
+export const TIER: Partial<Record<StudyActivity, number>> = { lectura: 1, vueltas: 0.85, examen: 0.4, apuntes: 0.05 }
 
 /** Estudio efectivo: solo las actividades con tier (registros antiguos sin activity cuentan como estudio). */
 export const isStudy = (a?: StudyActivity) => a === undefined || a in TIER

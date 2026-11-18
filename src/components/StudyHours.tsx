@@ -9,16 +9,16 @@ import { Badge } from './Badge'
 const PRESETS = [25, 30, 45, 60, 90, 120, 180]
 const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const ACTIVITIES: [StudyActivity, string][] = [
-  ['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['apuntes', 'Preparación apuntes'],
+  ['vueltas', 'Vueltas al temario'], ['lectura', 'Lectura y subrayado'], ['examen', 'Práctica examen'], ['apuntes', 'Preparación apuntes'],
   ['clase', 'Clase'], ['interactivas', 'Preparación interactivas'], ['universidad', 'UPF / USC'],
   ['trabajo', 'Trabajo'], ['proyectos', 'Proyectos personales'], ['debate', 'Debate'], ['desplazamiento', 'Desplazamiento'], ['descanso', 'Descanso'], ['dormir', 'Dormir'], ['gimnasio', 'Gimnasio'], ['biblioteca', 'Biblioteca'], ['libre', 'Día libre'],
 ]
 const GROUPS: [string, StudyActivity[]][] = [
-  ['Estudio', ['vueltas', 'lectura', 'apuntes']], ['Universidad', ['clase', 'interactivas', 'universidad']],
+  ['Estudio', ['vueltas', 'lectura', 'examen', 'apuntes']], ['Universidad', ['clase', 'interactivas', 'universidad']],
   ['Otros', ['trabajo', 'proyectos', 'debate', 'desplazamiento', 'descanso', 'dormir', 'gimnasio', 'biblioteca', 'libre']],
 ]
 const labelOf = (a?: StudyActivity) => ACTIVITIES.find(([k]) => k === a)?.[1] ?? 'Estudio'
-// Solo el estudio efectivo (vueltas, lectura, apuntes) va ligado a lección; clase e interactivas solo a asignatura
+// Solo el estudio efectivo (vueltas, lectura, examen, apuntes) va ligado a lección; clase e interactivas solo a asignatura
 const withLesson = isStudy
 const withSubject = (a: StudyActivity) => isStudy(a) || a === 'clase' || a === 'interactivas'
 /** Horas con una decimal sin unidad (270 → "4,5"), para que 7 columnas quepan en un iPhone. */
@@ -211,17 +211,17 @@ function Tile({ label, minutes }: { label: string; minutes: number }) {
   )
 }
 
-type DayStats = Record<'vueltas' | 'apuntes' | 'lectura' | 'universidad' | 'clase' | 'interactivas' | 'trabajo' | 'desplazamiento' | 'dormir' | 'proyectos' | 'debate' | 'descanso' | 'study' | 'quality' | 'total', number>
+type DayStats = Record<'vueltas' | 'apuntes' | 'lectura' | 'examen' | 'universidad' | 'clase' | 'interactivas' | 'trabajo' | 'desplazamiento' | 'dormir' | 'proyectos' | 'debate' | 'descanso' | 'study' | 'quality' | 'total', number>
 // [etiqueta, clave, clases, título, es subfila de Estudio]
 const ROWS: [string, keyof DayStats, string, string, boolean?][] = [
-  ['Estudio', 'study', 'text-fg font-semibold', 'Estudio efectivo (vueltas + lectura + apuntes)'],
-  ['Vueltas', 'vueltas', 'text-muted', 'Vueltas al temario', true], ['Lectura', 'lectura', 'text-muted', 'Lectura y subrayado', true],
+  ['Estudio', 'study', 'text-fg font-semibold', 'Estudio efectivo (vueltas + lectura + práctica examen + apuntes)'],
+  ['Vueltas', 'vueltas', 'text-muted', 'Vueltas al temario', true], ['Lectura', 'lectura', 'text-muted', 'Lectura y subrayado', true], ['Examen', 'examen', 'text-muted', 'Práctica examen', true],
   ['Apuntes', 'apuntes', 'text-muted', 'Preparación apuntes', true], ['Clase', 'clase', 'text-muted', 'Clase'], ['Interact.', 'interactivas', 'text-muted', 'Preparación interactivas'], ['UPF/USC', 'universidad', 'text-muted', 'Gestiones de la universidad (UPF / USC)'],
   ['Trabajo', 'trabajo', 'text-muted', 'Trabajo (experiencia profesional)'], ['Proyectos', 'proyectos', 'text-project', 'Proyectos personales'], ['Debate', 'debate', 'text-muted', 'Debate'],
   ['Desplaz.', 'desplazamiento', 'text-muted', 'Desplazamientos'], ['Descanso', 'descanso', 'text-muted', 'Descanso'], ['Dormir', 'dormir', 'text-muted', 'Dormir'], ['Total global', 'total', 'text-fg font-semibold', 'Total global (todo el tiempo registrado)'],
 ]
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-// Intensidad por horas ponderadas por carga cognitiva (lectura 100%, vueltas 85%, apuntes 5%): <1h, <2h, <4h, ≥4h
+// Intensidad por horas ponderadas por carga cognitiva (lectura 100%, vueltas 85%, práctica examen 40%, apuntes 5%): <1h, <2h, <4h, ≥4h
 const shade = (min: number) => (min >= 240 ? 1 : min >= 120 ? 0.75 : min >= 60 ? 0.5 : 0.3)
 
 /** Calendario de constancia desde el inicio del semestre (oct 2026) hasta el mes del último examen; al tocar un día se ve su desglose en una línea. */
@@ -356,13 +356,13 @@ function HourMap({ logs }: { logs: StudyLog[] }) {
   )
 }
 
-// Estudio en un mismo tono: vueltas el más intenso, luego lectura, apuntes el más claro; el resto con color propio
+// Estudio en un mismo tono: vueltas el más intenso, luego lectura, práctica examen, apuntes el más claro; el resto con color propio
 const CAT_COLOR: Record<StudyActivity, [string, number]> = {
-  vueltas: ['var(--color-study-1)', 1], lectura: ['var(--color-study-2)', 1], apuntes: ['var(--color-study-3)', 1],
+  vueltas: ['var(--color-study-1)', 1], lectura: ['var(--color-study-2)', 1], examen: ['var(--color-study-exam)', 1], apuntes: ['var(--color-study-3)', 1],
   clase: ['var(--color-class)', 1], interactivas: ['var(--color-interactive)', 1], universidad: ['var(--color-uni)', 1], trabajo: ['var(--color-work)', 1], proyectos: ['var(--color-project)', 1], debate: ['var(--color-debate)', 1],
   desplazamiento: ['var(--color-travel)', 1], descanso: ['var(--color-faint)', 1], dormir: ['var(--color-sleep)', 1], gimnasio: ['var(--color-gym)', 1], biblioteca: ['var(--color-fg)', 1], libre: ['var(--color-off)', 1],
 }
-const STUDY_CATS = ['lectura', 'vueltas', 'apuntes'] as const
+const STUDY_CATS = ['lectura', 'vueltas', 'examen', 'apuntes'] as const
 const PERIODS: [string, number][] = [['7 días', 7], ['30 días', 30], ['Todo', 0]]
 const sumOf = (ls: StudyLog[]) => ls.reduce((a, l) => a + l.totalMinutes, 0)
 
@@ -590,7 +590,7 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
   const hardest = [...byLesson].sort((a, b) => phase(b, 'lectura') + perVuelta(b) - phase(a, 'lectura') - perVuelta(a))[0]
   const lessonSubjects = subjects.filter((s) => byLesson.some((x) => x.subject?.id === s.id))
   const shown = byLesson.filter((x) => x.subject?.id === lessonSubject)
-  const active = sumOf(study.filter((l) => l.activity === 'lectura' || l.activity === 'vueltas' || !l.activity))
+  const active = sumOf(study.filter((l) => l.activity === 'lectura' || l.activity === 'vueltas' || l.activity === 'examen' || !l.activity))
   const operative = sumOf(study.filter((l) => l.activity === 'apuntes'))
   const noLesson = sumOf(study.filter((l) => l.lessonId === undefined))
   const effective = active + operative || 1
@@ -610,10 +610,10 @@ function Analysis({ logs, subjects, lessons }: { logs: StudyLog[]; subjects: Sub
           <div>
             <p className={heading}>Resumen · estudio efectivo {fmtMinutes(sumOf(study))}</p>
             <div className="grid grid-cols-3 gap-2">
-              <Kpi label="Activo" value={fmtMinutes(active)} sub={`${Math.round((active / effective) * 100)}% · L + V`} />
+              <Kpi label="Activo" value={fmtMinutes(active)} sub={`${Math.round((active / effective) * 100)}% · L + V + E`} />
               <Kpi label="Operativo" value={fmtMinutes(operative)} sub={`${Math.round((operative / effective) * 100)}% · apuntes`} />
               <Kpi label="Carga cognitiva" value={`${Math.round(load * 100)}%`} sub="ponderada"
-                title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 5%" />
+                title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Práctica examen 40% · Apuntes (con IA) 5%" />
             </div>
             <div className="mt-2 flex h-2 rounded-full bg-line overflow-hidden">
               <span style={{ width: `${(active / effective) * 100}%`, background: 'var(--color-study-1)' }} />
@@ -712,7 +712,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const [editing, setEditing] = useState<StudyLog | null>(null)
   const counted = allLogs.filter((l) => !isLib(l.activity) && !isOff(l.activity)) // la biblioteca es presencia y el día libre no es tiempo: no suman al total
   const offDays = new Set(allLogs.filter((l) => isOff(l.activity)).map((l) => l.date))
-  const logs = allLogs.filter((l) => isStudy(l.activity)) // solo vueltas, lectura y apuntes suman horas de estudio; el resto se registra pero no suman horas de estudio
+  const logs = allLogs.filter((l) => isStudy(l.activity)) // solo vueltas, lectura, examen y apuntes suman horas de estudio; el resto se registra pero no suman horas de estudio
   const sum = sumOf
 
   const now = new Date()
@@ -724,7 +724,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
   const dayOf = (d: string): DayStats => {
     const own = byDate.get(d) ?? []
     const by = (a: StudyActivity) => sum(own.filter((l) => l.activity === a))
-    return { vueltas: by('vueltas'), apuntes: by('apuntes'), lectura: by('lectura'), universidad: by('universidad'), clase: by('clase'), interactivas: by('interactivas'), trabajo: by('trabajo'), proyectos: by('proyectos'), debate: by('debate'), desplazamiento: by('desplazamiento'), descanso: by('descanso'), dormir: by('dormir'), study: sum(own.filter((l) => isStudy(l.activity))), quality: own.reduce((a, l) => a + l.totalMinutes * weightOf(l.activity), 0), total: sum(own) }
+    return { vueltas: by('vueltas'), apuntes: by('apuntes'), lectura: by('lectura'), examen: by('examen'), universidad: by('universidad'), clase: by('clase'), interactivas: by('interactivas'), trabajo: by('trabajo'), proyectos: by('proyectos'), debate: by('debate'), desplazamiento: by('desplazamiento'), descanso: by('descanso'), dormir: by('dormir'), study: sum(own.filter((l) => isStudy(l.activity))), quality: own.reduce((a, l) => a + l.totalMinutes * weightOf(l.activity), 0), total: sum(own) }
   }
   const perDay = week.map(dayOf)
   const exams = new Map<string, Subject[]>()
@@ -771,7 +771,7 @@ export function StudyStats({ onBack }: { onBack: () => void }) {
         </div>
         <p className="mt-3 pt-2 border-t border-line text-body-sm">
           Días cumplidos esta semana: <span className="font-semibold tabular-nums whitespace-nowrap">{doneDays} / {workDays}</span>
-          {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Apuntes (con IA) 5%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
+          {weekStudy > 0 && <span className="text-muted whitespace-nowrap" title="Pondera el esfuerzo cognitivo real de cada fase: Lectura y subrayado 100% · Vueltas 85% · Práctica examen 40% · Apuntes (con IA) 5%"> · Carga cognitiva <span className="text-fg font-semibold tabular-nums">{Math.round((perDay.reduce((a, d) => a + d.quality, 0) / weekStudy) * 100)}%</span></span>}
         </p>
       </section>
 
